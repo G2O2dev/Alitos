@@ -1,0 +1,62 @@
+import {PageNavigator} from "./pages/PageNavigator.js";
+import {ProjectPage} from "./pages/projects/ProjectPage.js";
+import {SettingsPage} from "./pages/settings/SettingsPage.js";
+
+
+globalThis.pageNav = new PageNavigator({
+    'projects': ProjectPage,
+    // 'calls': CallsPage,
+    // 'manager-view': ManagerPage,
+    'settings': SettingsPage,
+}, 'projects');
+
+document.addEventListener("DOMContentLoaded", async () => {
+    globalThis.pageNav.init();
+    initSidebar();
+    initThemes();
+});
+
+let isSidebarMinified = true;
+
+function initSidebar() {
+    const sidebar = document.querySelector(".sidebar");
+    const activeBtn = sidebar.querySelector(`[data-page='${globalThis.pageNav.activePage}']`);
+    activeBtn.classList.add("sidebar__item--active");
+
+    const sidebarExpandBtn = sidebar.querySelector(".sidebar__expand-btn");
+    sidebarExpandBtn.addEventListener("click", () => {
+        sidebar.classList.toggle("sidebar--expanded");
+        isSidebarMinified = !isSidebarMinified;
+    });
+
+
+    const navBtns = document.querySelectorAll(".sidebar__item");
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            const pageId = btn.getAttribute('data-page');
+            if (globalThis.pageNav.navigate(pageId)) {
+                navBtns.forEach(btn => btn.classList.remove('sidebar__item--active'));
+                btn.classList.add('sidebar__item--active');
+            }
+        });
+    });
+}
+
+function initThemes() {
+    const themBtn = document.querySelector(".them-switch");
+
+    themBtn.addEventListener('click', () => {
+        document.documentElement.classList.add('them-switching');
+        document.documentElement.classList.toggle('dark');
+
+        chrome.runtime.sendMessage({
+            action: "set-setting",
+            settingName: "dark-theme",
+            value: document.documentElement.classList.contains('dark')
+        });
+
+        setTimeout(() => document.documentElement.classList.remove('them-switching'), 100);
+    });
+}

@@ -1,0 +1,38 @@
+@import "../styles/shared";
+
+//#region Base
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  display: flex;
+  gap: 5px;
+  flex-direction: row;
+  background: var(--color-bg);
+
+  padding: 10px;
+}
+
+
+.analyze-btn {
+  font-size: 18px;
+  padding: 4px 10px;
+  cursor: pointer;
+
+  text-decoration: none;
+  color: var(--color-text-primary);
+
+  border-radius: var(--corner-radius);
+  background: var(--color-gray-200);
+  border: 1px solid var(--color-gray-400);
+  transition: background-color 0.2s ease-out, border-color 0.2s ease-out;
+}
+
+.analyze-btn:hover {
+  background: var(--color-gray-400);
+  border: 1px solid var(--color-gray-500);
+}
+
+//#endregion

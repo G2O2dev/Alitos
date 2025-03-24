@@ -1,0 +1,75 @@
+.search {
+  display: flex;
+  position: relative;
+  cursor: text;
+  outline: none;
+
+  font-size: 16px;
+
+  height: 34px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-gray-400);
+  box-sizing: border-box;
+
+  color: var(--color-text-secondary);
+  background-color: var(--color-gray-200);
+  border-radius: var(--corner-radius);
+  transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+
+  &__icon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 32px;
+    height: 100%;
+
+    cursor: text;
+
+    mask-size: 14px;
+    mask-position: center;
+    mask-repeat: no-repeat;
+    mask-image: url("../assets/img/Search.svg");
+
+    background-color: var(--color-gray-800);
+  }
+
+  &__icon.has-text {
+    cursor: pointer;
+    mask-image: url("../assets/img/Cross.svg");
+
+    &:hover {
+      background-color: var(--color-gray-900);
+    }
+  }
+
+  &:hover {
+    border-color: var(--color-gray-500);
+    background-color: var(--color-gray-300);
+  }
+
+  &:focus-within {
+    border-color: var(--color-gray-400);
+    background-color: var(--color-bg);
+  }
+
+  &__input {
+    border: none;
+    background: transparent;
+
+    outline: none;
+    width: calc(100% - 22px);
+    font-size: inherit;
+    color: inherit;
+    padding: 0;
+    line-height: 22px;
+  }
+
+  &__input::placeholder {
+    color: var(--color-text-tertiary);
+    transition: color 0.25s ease-in-out;
+  }
+  &__input:hover::placeholder,
+  &__input:focus::placeholder {
+    color: var(--color-text-tertiary);
+  }
+}

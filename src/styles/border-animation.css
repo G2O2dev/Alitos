@@ -1,0 +1,29 @@
+@keyframes bg-spin {
+  to {
+    --border-angle: 1turn;
+  }
+}
+.border-loader {
+  --border-angle: 0turn;
+  --main-bg: conic-gradient(from var(--border-angle), var(--color-bg4), var(--color-bg4));
+  --gradient-border: conic-gradient(from var(--border-angle), var(--color-bg4) 37%, #696969 44%, var(--color-bg4) 55%);
+  border: 1px solid var(--color-bg4);
+  background: conic-gradient(from var(--border-angle), var(--color-bg), var(--color-bg)) padding-box, var(--gradient-border) border-box;
+  animation: bg-spin 4s linear infinite;
+  box-sizing: border-box;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  transition: border-color 1s;
+}
+
+.border-loader--loading {
+  border-color: transparent;
+}
+
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0turn;
+}
+
+/*# sourceMappingURL=border-animation.css.map */

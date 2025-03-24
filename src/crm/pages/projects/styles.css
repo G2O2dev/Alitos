@@ -1,0 +1,124 @@
+@keyframes bg-spin {
+  to {
+    --border-angle: 1turn;
+  }
+}
+.border-loader {
+  --border-angle: 0turn;
+  --main-bg: conic-gradient(from var(--border-angle), var(--color-bg4), var(--color-bg4));
+  --gradient-border: conic-gradient(from var(--border-angle), var(--color-bg4) 37%, #696969 44%, var(--color-bg4) 55%);
+  border: 1px solid var(--color-bg4);
+  background: conic-gradient(from var(--border-angle), var(--color-bg), var(--color-bg)) padding-box, var(--gradient-border) border-box;
+  animation: bg-spin 4s linear infinite;
+  box-sizing: border-box;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  transition: border-color 1s;
+}
+
+.border-loader--loading {
+  border-color: transparent;
+}
+
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0turn;
+}
+.ag-floating-bottom {
+  overflow: hidden !important;
+}
+
+.ag-floating-bottom-container {
+  border-right: 1px solid #24241e;
+  box-sizing: content-box;
+}
+
+.ag-root ::-webkit-scrollbar {
+  border-left: 1px solid #24241e;
+  width: 8px;
+  height: 8px;
+}
+
+.ag-root ::-webkit-scrollbar-track-piece {
+  background: transparent;
+}
+
+.ag-root ::-webkit-scrollbar-thumb {
+  background: var(--color-bg4);
+}
+
+.ag-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-bg5);
+}
+
+.ag-root ::-webkit-scrollbar-button {
+  display: none;
+}
+
+.ag-tooltip {
+  max-width: 400px;
+  white-space: pre-line;
+}
+
+.percent {
+  position: absolute;
+  left: 70px;
+  color: var(--color-font3);
+}
+
+.sources_count {
+  position: absolute;
+  left: 95px;
+  color: var(--color-font3);
+}
+
+.grid {
+  height: 100%;
+  width: 100%;
+}
+
+.grid__container {
+  height: 100%;
+  width: 100%;
+}
+
+.ag-root-wrapper {
+  border-radius: 8px 8px 0 0;
+  border: none;
+  background-color: var(--color-bg);
+}
+
+.lead-cell {
+  background-color: rgba(65, 217, 116, 0.08);
+}
+
+.lead-cell:hover {
+  background-color: rgba(65, 217, 116, 0.15);
+}
+
+.missed-cell {
+  background-color: rgba(65, 148, 217, 0.08);
+}
+
+.missed-cell:hover {
+  background-color: rgba(65, 148, 217, 0.15);
+}
+
+.decline-cell {
+  background-color: rgba(217, 65, 65, 0.08);
+}
+
+.decline-cell:hover {
+  background-color: rgba(217, 65, 65, 0.15);
+}
+
+.project-limited {
+  background-color: rgba(255, 252, 85, 0.08);
+}
+
+.project-limited-completely {
+  background-color: rgba(255, 5, 5, 0.08);
+}
+
+/*# sourceMappingURL=styles.css.map */

@@ -1,0 +1,64 @@
+.search {
+  display: flex;
+  position: relative;
+  cursor: text;
+  outline: none;
+  font-size: 16px;
+  height: 34px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-bg4);
+  box-sizing: border-box;
+  color: var(--color-font2);
+  background-color: var(--color-bg2);
+  border-radius: var(--corner-radius);
+  transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+}
+.search__icon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 100%;
+  cursor: text;
+  mask-size: 14px;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-image: url("../../assets/img/Search.svg");
+  background-color: var(--color-bg9);
+}
+.search__icon.has-text {
+  cursor: pointer;
+  mask-image: url("../../assets/img/Cross.svg");
+}
+.search .has-text:hover {
+  background-color: var(--color-bg13);
+}
+.search:hover {
+  border-color: var(--color-bg5);
+  background-color: var(--color-bg3);
+}
+.search:focus-within {
+  border-color: var(--color-bg4);
+  background-color: var(--color-bg);
+}
+.search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: calc(100% - 22px);
+  height: 100%;
+  font-size: inherit;
+  color: inherit;
+  padding: 0;
+  line-height: 22px;
+}
+.search input::placeholder {
+  color: var(--color-font4);
+  transition: color 0.25s ease-in-out;
+}
+.search input:hover::placeholder,
+.search input:focus::placeholder {
+  color: var(--color-font3);
+}
+
+/*# sourceMappingURL=search.css.map */

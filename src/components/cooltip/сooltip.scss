@@ -1,0 +1,80 @@
+.tooltip-element {
+  position: fixed;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+  transform-origin: var(--transform-origin);
+  white-space: nowrap;
+  max-width: calc(100vw - 30px);
+  overflow-wrap: break-word;
+  opacity: 0;
+  transform:  translateY(10px);
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+  transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, opacity, left, top;
+}
+
+.tooltip-element.shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tooltip-element::after {
+  content: '';
+  position: absolute;
+  border: 8px solid transparent;
+  transition: inherit;
+}
+
+.tooltip-element.shown::after {
+  opacity: 1;
+}
+
+.tooltip-element.top {
+  --transform-origin: bottom center;
+}
+
+.tooltip-element.top::after {
+  top: 100%;
+  left: calc(50% + var(--arrow-position, 0px));
+  transform: translateX(-50%);
+  border-top-color: var(--color-bg);
+}
+
+.tooltip-element.bottom {
+  --transform-origin: top center;
+}
+
+.tooltip-element.bottom::after {
+  bottom: 100%;
+  left: calc(50% + var(--arrow-position, 0px));
+  transform: translateX(-50%);
+  border-bottom-color: var(--color-bg);
+}
+
+.tooltip-element.left {
+  --transform-origin: right center;
+}
+
+.tooltip-element.left::after {
+  left: 100%;
+  top: calc(50% + var(--arrow-position, 0px));
+  transform: translateY(-50%);
+  border-left-color: var(--color-bg);
+}
+
+.tooltip-element.right {
+  --transform-origin: left center;
+}
+
+.tooltip-element.right::after {
+  right: 100%;
+  top: calc(50% + var(--arrow-position, 0px));
+  transform: translateY(-50%);
+  border-right-color: var(--color-bg);
+}

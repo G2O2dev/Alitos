@@ -1,0 +1,88 @@
+@import "../components/cooltip/сooltip", "../components/search/search", "../components/toggle-btn/toggle-btn", "./border-animation", "../components/modal/modal", "../components/modal/alitos-modal", "../components/data-picker/data-picker", "../components/period-btn/period-btn";
+
+:root {
+  --corner-radius: 8px;
+
+  --color-bg: hsl(0, 0%, 100%);
+  --color-gray-100: hsl(0, 0%, 96%);
+  --color-gray-200: hsl(0, 0%, 90%);
+  --color-gray-300: hsl(0, 0%, 85%);
+  --color-gray-400: hsl(0, 0%, 70%);
+  --color-gray-500: hsl(0, 0%, 60%);
+  --color-gray-600: hsl(0, 0%, 50%);
+  --color-gray-700: hsl(0, 0%, 40%);
+  --color-gray-800: hsl(0, 0%, 30%);
+  --color-gray-900: hsl(0, 0%, 20%);
+
+  --color-accent: #2563EB;
+  --color-accent-light: #3B82F6;
+  --color-accent-dark: #1D4ED8;
+
+  --color-green: 140, 67%, 55%;
+  --color-blue: 207, 67%, 55%;
+  --color-red: 0, 67%, 55%;
+  --color-yellow: 59, 100%, 55%;
+
+  --color-green-200: hsl(140, 55%, 85%);
+  --color-green-300: hsl(140, 55%, 78%);
+  --color-green-400: hsl(140, 55%, 65%);
+  --color-green-500: hsl(140, 55%, 55%);
+  --color-green-600: hsl(140, 55%, 45%);
+
+  --color-text-primary: hsl(0, 0%, 10%);       /* Почти чёрный */
+  --color-text-secondary: hsl(0, 0%, 30%);       /* Тёмно-серый */
+  --color-text-tertiary: hsl(0, 0%, 50%);        /* Средний серый */
+  --color-text-quaternary: hsl(0, 0%, 70%);      /* Светло-серый */
+
+  --color-text-goldy: hsl(60, 40%, 25%);
+  --color-text-green: hsl(118, 40%, 25%);
+  --color-text-blue: hsl(211, 40%, 25%);
+}
+
+:root.dark {
+  --color-bg: #000;
+  --color-gray-900: hsl(240, 8%, 60%);
+  --color-gray-800: hsl(240, 8%, 50%);
+  --color-gray-700: hsl(240, 8%, 40%);
+  --color-gray-600: hsl(240, 8%, 30%);
+  --color-gray-500: hsl(240, 8%, 20%);
+  --color-gray-400: hsl(240, 8%, 15%);
+  --color-gray-300: hsl(240, 8%, 11%);
+  --color-gray-200: hsl(240, 8%, 8%);
+  --color-gray-100: hsl(240, 8%, 5%);
+
+  --color-green-200: hsl(140, 55%, 8%);
+  --color-green-300: hsl(140, 55%, 11%);
+  --color-green-400: hsl(140, 55%, 15%);
+  --color-green-500: hsl(140, 55%, 20%);
+  --color-green-600: hsl(140, 55%, 30%);
+
+  --color-accent: #1E65FF;
+  --color-accent-light: #3B82F6;
+  --color-accent-dark: #1D4ED8;
+
+  --color-text-primary: hsl(0, 0%, 95%);       /* Мягкий белый */
+  --color-text-secondary: hsl(240, 5%, 80%);     /* Светло-серый */
+  --color-text-tertiary: hsl(240, 5%, 60%);      /* Средний серый */
+  --color-text-quaternary: hsl(240, 5%, 40%);    /* Тёмно-серый */
+
+  --color-text-goldy: hsl(60, 40%, 80%);
+  --color-text-green: hsl(118, 40%, 80%);
+  --color-text-blue: hsl(211, 40%, 80%);
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url("../assets/fonts/Montserrat.ttf") format("ttf");
+}
+
+* {
+  margin: 0;
+  padding: 0;
+
+  font-family: 'Montserrat', Tahoma, serif;
+}
+
+:root.them-switching * {
+  transition: none !important;
+}
