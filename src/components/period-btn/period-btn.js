@@ -1,4 +1,3 @@
-import { AlitosPeriodPicker } from "../data-picker/altios-period-picker.js";
 import { PeriodPickModal } from "../../crm/pages/projects/PeriodPickModal.js";
 
 export class PeriodBtn {
@@ -27,6 +26,10 @@ export class PeriodBtn {
             this.deleteBtn.addEventListener('click', () => this.config.onDelete());
         }
         this.element.addEventListener('click', () => this.openRangePicker());
+    }
+
+    setAllowedRange(start, end) {
+        this.config.allowedRange = { minDate: start, maxDate: end };
     }
 
     openRangePicker() {

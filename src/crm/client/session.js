@@ -33,6 +33,10 @@ class Session {
     async #getAnalytic(from, to, deleted) {
         const sliceName = this.getAnalyticSliceName(from, to, deleted);
 
+        return this.getAnalyticBySliceName(sliceName);
+    }
+
+    async getAnalyticBySliceName(sliceName) {
         if (!(sliceName in this.#periodsData)) {
             this.#periodsData[sliceName] = await crmApi.getAnalytic(sliceName);
         }

@@ -18,7 +18,7 @@ export class SearchComponent {
     }
 
     notifyChange() {
-        this.element.dispatchEvent(new Event("search-input", { bubbles: true }));
+        this.element.dispatchEvent(new CustomEvent("search-input", { bubbles: true, detail: { query: this.input.value } }));
     }
 
     handleChange() {

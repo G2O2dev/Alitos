@@ -1,5 +1,5 @@
 import {AlitosModal} from "../../../components/modal/AlitosModal.js";
-import adviceSystem, {advicePriority} from "../../client/advices.js";
+import adviceSystem from "../../client/advices.js";
 
 export class AdviceModal extends AlitosModal {
     #firstRender = true;
@@ -14,13 +14,13 @@ export class AdviceModal extends AlitosModal {
     #buildAdvicePriority(advice) {
         let priorityLocale;
         switch (advice.priority) {
-            case advicePriority.Low:
+            case 'low':
                 priorityLocale = 'Низкий';
                 break;
-            case advicePriority.Medium:
+            case 'medium':
                 priorityLocale = 'Средний';
                 break;
-            case advicePriority.High:
+            case 'high':
                 priorityLocale = 'Высокий';
                 break;
         }

@@ -5,10 +5,10 @@ export class DatePicker {
             {
                 mode: 'single',
                 twoMonths: false,
-                allowedRange: { minDate: null, maxDate: null },
                 firstDayOfWeek: 1,
-                // Добавляем возможность задавать диапазон по умолчанию
-                defaultRange: { start: null, end: null }
+
+                defaultRange: { start: null, end: null },
+                allowedRange: { minDate: null, maxDate: null },
             },
             config
         );

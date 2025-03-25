@@ -33,8 +33,8 @@ export class ProjectPage extends Page {
         if (this.#gridLoaded || this.#gridLoading) return;
         this.#gridLoading = true;
 
-        this.#setupPeriodBtns();
         this.setLoading(true);
+        this.#setupPeriodBtns();
         this.gridManager.init(this.#periods);
         this.#initSearch();
 
@@ -47,9 +47,7 @@ export class ProjectPage extends Page {
     async #setupPeriodBtns() {
         this.#periodsEl = document.querySelector('.periods-settings');
         this.#periodsAddBtn = document.querySelector('.periods-settings__add-period');
-        const now = new Date();
-        const client = await session.getClient();
-        const createdAt = new Date(Number(client.created_at) * 1000);
+        let btns = [];
 
         for (let i = 0; i < this.#periods.length; i++) {
             const period = this.#periods[i];
@@ -57,11 +55,10 @@ export class ProjectPage extends Page {
             const periodBtn = document.createElement("div");
             periodBtn.classList.add("periods-settings__period");
 
-            new PeriodBtn(periodBtn, {
+            const btn = new PeriodBtn(periodBtn, {
                 firstDate: period.from,
                 secondDate: period.to,
                 allowDelete: false,
-                allowedRange: {minDate: createdAt, maxDate: now},
 
                 onDelete: () => this.#deletePeriod(i),
                 onChanged: async (newFrom, newTo) => {
@@ -71,8 +68,17 @@ export class ProjectPage extends Page {
                 },
             });
 
+            btns.push(btn);
             this.#periodsEl.appendChild(periodBtn);
+
+            session.getClient().then(client => {
+                const now = new Date();
+                const createdAt = new Date(Number(client.created_at) * 1000);
+                btns.forEach(btn => btn.setAllowedRange(createdAt, now));
+            })
         }
+
+
     }
     #setupEvents() {
         this.element.querySelectorAll(".toggle-btn").forEach(btn => {
@@ -101,11 +107,11 @@ export class ProjectPage extends Page {
         };
 
         adviceSystem.onNewAdvice(() => this.onAdvicesCountChanged());
-        adviceSystem.onAdviceComplete(() => this.onAdvicesCountChanged());
+        adviceSystem.onLoadComplete(() => this.onAdvicesCountChanged());
     }
     #initSearch() {
         this.mainSearch = new SearchComponent(this.element.querySelector(".projects-search"));
-        this.mainSearch.element.addEventListener("search-input", e => this.gridManager.search(e.target.value));
+        this.mainSearch.element.addEventListener("search-input", e => this.gridManager.search(e.detail.query));
         document.addEventListener("keydown", e => {
             if (this.isShown() && (e.ctrlKey || e.metaKey) && e.code === "KeyF") {
                 e.preventDefault();
@@ -155,10 +161,9 @@ export class ProjectPage extends Page {
                 newRows.push(project);
             }
         });
-        if (newRows.length) {
-            this.gridManager.addRows(newRows);
-        }
-        if (this.gridManager.rows.size !== newRows.length)
+        const newRowsLen = newRows.length;
+        this.gridManager.addRows(newRows);
+        if (this.gridManager.rows.size !== newRowsLen)
             this.gridManager.refreshCells();
     }
     #applyProjectInfoToGridRows(projectsInfo) {

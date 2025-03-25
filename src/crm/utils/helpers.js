@@ -55,18 +55,7 @@ export function formatPercentage(num) {
     return str.endsWith('.0') ? str.slice(0, -2) : str;
 }
 
-export function assocType(type) {
-    return (
-        {
-            calls: "Звонки",
-            hosts: "Сайты",
-            hosthost: "Сайты (П)",
-            sms: "СМС"
-        }[type] || (console.warn("Unknown project type:", type), type)
-    );
-}
-
-export function percentageDifference(base, compared) {
+export function percentageDiff(base, compared) {
     return ((compared - base) / base) * 100;
 }
 
