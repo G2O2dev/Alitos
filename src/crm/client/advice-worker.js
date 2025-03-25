@@ -1,21 +1,18 @@
-let cachedConfig = null;
-let analyticsCache = new Map();
-
 const advicePriority = Object.freeze({
     Low: 'low',
     Medium: 'medium',
     High: 'high',
 });
 const adviceActions = Object.freeze({
-    Copy: {
+    copy: {
         name: "Копировать",
         key: "copy",
     },
-    ViewProjects: {
+    viewProjects: {
         name: "Смотреть проекты",
         key: "viewProjects",
     },
-    Apply: {
+    apply: {
         name: "Применить",
         key: "apply",
         class: 'primary',
@@ -28,9 +25,6 @@ self.addEventListener('message', async (event) => {
         case 'getAdvices':
             await getAdvices();
             self.postMessage({ type: 'loadComplete' });
-            break;
-        case 'projectsConfigResponse':
-            if (!cachedConfig) cachedConfig = data.config;
             break;
         case 'analyticResponse':
             const { sliceName, analytics } = data;
@@ -88,42 +82,29 @@ function getDateOffset(baseDate, offsetDays) {
 //#endregion
 
 //#region Communicator
+const analyticsCache = new Map();
 async function getAnalytic(from, to, deleted) {
     const cacheKey = getAnalyticSliceName(from, to, deleted);
     if (analyticsCache.has(cacheKey)) {
         return analyticsCache.get(cacheKey);
     }
-
     self.postMessage({ type: 'requestAnalytics', data: { sliceName: cacheKey } });
-    return new Promise((resolve) => {
-        const listener = (event) => {
-            if (event.data.type === 'analyticsResponse' && event.data.data.sliceName === cacheKey) {
-                const { analytics } = event.data.data;
-                analyticsCache.set(cacheKey, analytics);
-                resolve(analytics);
-                self.removeEventListener('message', listener);
-            }
-        };
-        self.addEventListener('message', listener);
-    });
+
+    const analyticPromise = waitForMessage('analyticsResponse', e => e.data.data.sliceName === cacheKey)
+        .then(response => response.data.analytics);
+
+    analyticsCache.set(cacheKey, analyticPromise);
+    return await analyticPromise;
 }
 
+let projectsConfigCache = undefined;
 async function getProjectsConfig() {
-    if (cachedConfig) {
-        return cachedConfig;
-    }
+    if (projectsConfigCache) return projectsConfigCache;
 
     self.postMessage({ type: 'requestProjectsConfig' });
-    return new Promise((resolve) => {
-        const listener = (event) => {
-            if (event.data.type === 'projectsConfigResponse') {
-                if (!cachedConfig) cachedConfig = event.data.config;
-                resolve(cachedConfig);
-                self.removeEventListener('message', listener);
-            }
-        };
-        self.addEventListener('message', listener);
-    });
+    projectsConfigCache = waitForMessage('projectsConfigResponse').then(response => response.data.config);
+
+    return await projectsConfigCache;
 }
 
 function *forEachDayAnalytic(startDate, endDate, deleted) {
@@ -134,6 +115,23 @@ function *forEachDayAnalytic(startDate, endDate, deleted) {
         yield getAnalytic(start, start, deleted);
         start.setDate(start.getDate() + 1);
     }
+}
+
+function waitForMessage(type, predicate = (e) => true, timeout = 15000) {
+    return new Promise((resolve, reject) => {
+        const listener = (event) => {
+            if (event.data.type === type && predicate(event)) {
+                self.removeEventListener('message', listener);
+                resolve(event.data);
+            }
+        };
+        self.addEventListener('message', listener);
+
+        setTimeout(() => {
+            self.removeEventListener('message', listener);
+            reject(new Error(`Timeout waiting for message: ${type}`));
+        }, timeout);
+    });
 }
 //#endregion
 
@@ -160,7 +158,7 @@ async function getWantedNumbersAdvice() {
         title: '',
         description: '',
         priority: advicePriority.Low,
-        actions: [adviceActions.Copy],
+        actions: [adviceActions.copy],
     };
     const config = await getProjectsConfig();
 
@@ -260,7 +258,7 @@ async function getMissedAdvice() {
             title: 'Высокий % недозвона',
             description: `За последнюю неделю, не считая последние 2 дня, процент недозвона ${Math.round(missedPercent)}%, что много. Предлагаю ${actionText}.`,
             priority: priority,
-            actions: [adviceActions.Copy],
+            actions: [adviceActions.copy],
         };
     }
 }
@@ -277,7 +275,7 @@ async function getUngroupAdvice() {
         title: 'Разгруппировка источников',
         description: `Активные проекты: ${inlineProjects(groupedProjectIds)} содержат несколько источников. Предлагаю разгруппировать их, создав отдельный проект для каждого источника. Это позволит лучше анализировать конверсию и принимать оптимальные решения.`,
         priority: advicePriority.Medium,
-        actions: [adviceActions.Copy],
+        actions: [adviceActions.copy],
     };
 }
 async function getStatusAdvice() {
@@ -314,7 +312,7 @@ async function getStatusAdvice() {
             title: `${pluralize(noStatusTotal, 'номер', '', 'а', 'ов')} не обзвонили`,
             description: `За последнюю неделю, не считая последние 2 дня, вижу, что по ${pluralize(noStatusTotal, 'номер', 'у', 'ам', 'ам')} не был выставлен статус. Так как вы используете колл-центр, это может быть связано с ошибкой в системе, предлагаю написать ответственному за колл-центр и уточнить в чём дело.`,
             priority: advicePriority.High,
-            actions: [adviceActions.Copy],
+            actions: [adviceActions.copy],
         };
     }
 }
@@ -330,7 +328,7 @@ async function getLimitAdvice() {
         priority: advicePriority.Medium,
 
         actions: [
-            adviceActions.Copy,
+            adviceActions.copy,
             {
                 name: "Смотреть проекты",
             },

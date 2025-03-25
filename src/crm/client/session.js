@@ -1,12 +1,6 @@
 import crmApi from "./crm-api.js";
 import bigdataApi from "./bigdata-api.js";
 
-export const analyticType = Object.freeze({
-    Normal: 0,
-    Deleted: 1,
-    All: 2,
-});
-
 class Session {
     #periodsData;
     #projects;
@@ -22,6 +16,7 @@ class Session {
         this.#projects = undefined;
         this.#deletedProjects = undefined;
         this.#clientInfo = undefined;
+        this.#projectsConfig = undefined;
     }
 
     getAnalyticSliceName(from, to, deleted) {
@@ -38,10 +33,10 @@ class Session {
 
     async getAnalyticBySliceName(sliceName) {
         if (!(sliceName in this.#periodsData)) {
-            this.#periodsData[sliceName] = await crmApi.getAnalytic(sliceName);
+            this.#periodsData[sliceName] = crmApi.getAnalytic(sliceName);
         }
 
-        return structuredClone(this.#periodsData[sliceName]);
+        return structuredClone(await this.#periodsData[sliceName]);
     }
 
     async hasManagerAccess() {
@@ -65,15 +60,15 @@ class Session {
         const query = `date=${formatedDate}&user_id=${userId}`;
 
         if (!(query in this.#RtkAnalytic)) {
-            const resp = await bigdataApi.getLimitPotential(query);
-
-            if (!resp)
-                throw new Error("Не могу получить аналитику РТК");
-
-            this.#RtkAnalytic[query] = resp;
+            this.#RtkAnalytic[query] = bigdataApi.getLimitPotential(query).then(resp => {
+                if (!resp) {
+                    throw new Error("Не могу получить аналитику РТК");
+                }
+                return resp;
+            });
         }
 
-        return this.#RtkAnalytic[query];
+        return await this.#RtkAnalytic[query];
     }
     async getAnalytic(from, to, deleted) {
         return await this.#getAnalytic(from, to, deleted);
@@ -81,32 +76,32 @@ class Session {
     async getProjects(deleted) {
         if (deleted) {
             if (!this.#deletedProjects) {
-                this.#deletedProjects = await crmApi.getProjects(true);
+                this.#deletedProjects = crmApi.getProjects(true);
             }
 
-            return this.#deletedProjects;
+            return await this.#deletedProjects;
         } else {
             if (!this.#projects) {
-                this.#projects = await crmApi.getProjects(false);
+                this.#projects = crmApi.getProjects(false);
             }
 
-            return this.#projects;
+            return await this.#projects;
         }
     }
 
     async getClient() {
         if (!this.#clientInfo) {
-            this.#clientInfo = await crmApi.getClient();
+            this.#clientInfo = crmApi.getClient();
         }
 
-        return this.#clientInfo;
+        return await this.#clientInfo;
     }
     async getProjectsConfig() {
         if (!this.#projectsConfig) {
-            this.#projectsConfig = await crmApi.getProjectsConfig();
+            this.#projectsConfig = crmApi.getProjectsConfig();
         }
 
-        return this.#projectsConfig;
+        return await this.#projectsConfig;
     }
 }
 

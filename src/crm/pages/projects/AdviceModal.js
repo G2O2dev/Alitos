@@ -95,7 +95,7 @@ export class AdviceModal extends AlitosModal {
             this.#firstRender = false;
         }
 
-        adviceSystem.onNewAdvice((e) => this.onNewAdvice(e.detail.advice));
+        adviceSystem.onNewAdvice((a) => this.onNewAdvice(a));
         adviceSystem.onLoadComplete(() => this.onLoadComplete());
 
         const advices = adviceSystem.getAdvices();

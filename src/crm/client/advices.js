@@ -20,7 +20,7 @@ class AdviceSystem {
             } else if (type === 'requestAnalytics') {
                 this.#handleAnalyticsRequest(data.sliceName);
             } else if (type === 'requestProjectsConfig') {
-                this.#handleConfigRequest();
+                this.#handleProjectsConfigRequest();
             }
         };
     }
@@ -32,7 +32,7 @@ class AdviceSystem {
             data: { sliceName, analytics }
         });
     }
-    async #handleConfigRequest() {
+    async #handleProjectsConfigRequest() {
         const config = await session.getProjectsConfig();
         this.#worker.postMessage({
             type: 'projectsConfigResponse',
