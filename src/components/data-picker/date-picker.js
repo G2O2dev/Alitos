@@ -1,3 +1,8 @@
+const MONTH_NAMES = [
+    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+];
+
 export class DatePicker {
     constructor(container, config = {}) {
         this.container = container;
@@ -6,7 +11,6 @@ export class DatePicker {
                 mode: 'single',
                 twoMonths: false,
                 firstDayOfWeek: 1,
-
                 defaultRange: { start: null, end: null },
                 allowedRange: { minDate: null, maxDate: null },
             },
@@ -67,7 +71,7 @@ export class DatePicker {
         this.root.appendChild(this.calendarsContainer);
         this.container.appendChild(this.root);
 
-        this.renderCalendars();
+        this.renderCalendars(true);
         this.updateMonthDisplay();
     }
 
@@ -81,8 +85,9 @@ export class DatePicker {
         this.monthDisplay.addEventListener('click', () => this.showMonthSelection());
 
         this.root.addEventListener('click', (e) => {
-            if (e.target.classList.contains('datepicker__day') && !e.target.classList.contains('disabled')) {
-                const timestamp = Number(e.target.getAttribute('data-timestamp'));
+            const day = e.target.closest('.datepicker__day:not(.disabled)');
+            if (day) {
+                const timestamp = Number(day.getAttribute('data-timestamp'));
                 const clickedDate = new Date(timestamp);
                 this.handleDateClick(clickedDate);
             }
@@ -90,8 +95,9 @@ export class DatePicker {
 
         if (this.config.mode === 'range') {
             this.root.addEventListener('mouseover', (e) => {
-                if (this.isSelectingRange && e.target.classList.contains('datepicker__day') && !e.target.classList.contains('disabled')) {
-                    const timestamp = Number(e.target.getAttribute('data-timestamp'));
+                const day = e.target.closest('.datepicker__day:not(.disabled)');
+                if (this.isSelectingRange && day) {
+                    const timestamp = Number(day.getAttribute('data-timestamp'));
                     const hoveredDate = new Date(timestamp);
                     this.renderSelection(hoveredDate);
                 }
@@ -119,11 +125,7 @@ export class DatePicker {
     }
 
     getMonthYear(date) {
-        const monthNames = [
-            'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-            'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-        ];
-        return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+        return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
     }
 
     updateMonthDisplay() {
@@ -154,11 +156,7 @@ export class DatePicker {
     }
 
     getMonthName(date) {
-        const monthNames = [
-            'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-            'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-        ];
-        return monthNames[date.getMonth()];
+        return MONTH_NAMES[date.getMonth()];
     }
 
     showMonthSelection() {
@@ -289,13 +287,13 @@ export class DatePicker {
         this.updateMonthSelection();
     }
 
-    renderCalendars() {
-        this.renderCalendar(this.calendar1, new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1));
+    renderCalendars(initial = false) {
+        this.renderCalendar(this.calendar1, new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1), initial);
         if (this.config.twoMonths && this.calendar2) {
             const nextMonthDate = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 1);
-            this.renderCalendar(this.calendar2, nextMonthDate);
+            this.renderCalendar(this.calendar2, nextMonthDate, initial);
         }
-        // Если установлен диапазон по умолчанию, сразу отображаем его
+
         if (this.config.mode === 'range' && (this.rangeStart || this.rangeEnd)) {
             this.renderSelection();
         }
@@ -317,33 +315,43 @@ export class DatePicker {
         }
     }
 
-    renderCalendar(calendarEl, date) {
-        calendarEl.innerHTML = '';
-        calendarEl.setAttribute('data-year', date.getFullYear());
-        calendarEl.setAttribute('data-month', date.getMonth());
+    renderCalendar(calendarEl, date, initial = false) {
+        if (initial || !calendarEl._cellsCreated) {
+            calendarEl.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            const weekdayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            const firstDayIndex = this.config.firstDayOfWeek % 7;
+            const weekdays = weekdayNames.slice(firstDayIndex).concat(weekdayNames.slice(0, firstDayIndex));
+            weekdays.forEach((day) => {
+                const dayEl = document.createElement('div');
+                dayEl.className = 'datepicker__cell datepicker__cell--weekday';
+                dayEl.textContent = day;
+                fragment.appendChild(dayEl);
+            });
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayTimestamp = today.getTime();
+            const dayCells = [];
+            for (let i = 0; i < 42; i++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'datepicker__cell datepicker__day';
 
-        const weekdayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-        const firstDayIndex = this.config.firstDayOfWeek % 7;
-        const weekdays = weekdayNames.slice(firstDayIndex).concat(weekdayNames.slice(0, firstDayIndex));
-        weekdays.forEach((day) => {
-            const dayEl = document.createElement('div');
-            dayEl.className = 'datepicker__cell datepicker__cell--weekday';
-            dayEl.textContent = day;
-            calendarEl.appendChild(dayEl);
-        });
+                fragment.appendChild(dayCell);
+                dayCells.push(dayCell);
+            }
+            calendarEl.appendChild(fragment);
 
+            calendarEl._dayCells = dayCells;
+            calendarEl._cellsCreated = true;
+        }
+
+        const dayCells = calendarEl._dayCells;
         const currentYear = date.getFullYear();
         const currentMonth = date.getMonth();
         let startDay = new Date(currentYear, currentMonth, 1).getDay();
         if (this.config.firstDayOfWeek === 1) {
             startDay = (startDay === 0) ? 6 : startDay - 1;
         }
-
         const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
         let previousMonth = currentMonth - 1;
         let previousYear = currentYear;
         if (previousMonth < 0) {
@@ -353,62 +361,46 @@ export class DatePicker {
         const daysInPreviousMonth = new Date(previousYear, previousMonth + 1, 0).getDate();
         const prevMonthDaysToShow = startDay;
 
-        for (let i = 0; i < prevMonthDaysToShow; i++) {
-            const day = daysInPreviousMonth - (prevMonthDaysToShow - 1 - i);
-            const prevDate = new Date(previousYear, previousMonth, day);
-            const dayCell = document.createElement('div');
-            dayCell.className = 'datepicker__cell datepicker__day datepicker__day--prev';
-            dayCell.textContent = day;
-            dayCell.setAttribute('data-timestamp', prevDate.getTime());
-            dayCell.setAttribute('data-current-month', 'false');
-            if (this.isDateDisabled(prevDate)) {
-                dayCell.classList.add('disabled');
-            }
-            if (prevDate.getTime() === todayTimestamp) {
-                dayCell.classList.add('today');
-            }
-            calendarEl.appendChild(dayCell);
-        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTimestamp = today.getTime();
 
-        for (let d = 1; d <= daysInMonth; d++) {
-            const currentDay = new Date(currentYear, currentMonth, d);
-            const dayCell = document.createElement('div');
-            dayCell.className = 'datepicker__cell datepicker__day';
-            dayCell.textContent = d;
-            dayCell.setAttribute('data-timestamp', currentDay.getTime());
-            dayCell.setAttribute('data-current-month', 'true');
-            if (this.isDateDisabled(currentDay)) {
-                dayCell.classList.add('disabled');
+        for (let i = 0; i < 42; i++) {
+            const cell = dayCells[i];
+            cell.className = 'datepicker__cell datepicker__day';
+            let cellDate, dayNum, currentMonthFlag;
+            if (i < prevMonthDaysToShow) {
+                dayNum = daysInPreviousMonth - (prevMonthDaysToShow - 1 - i);
+                cellDate = new Date(previousYear, previousMonth, dayNum);
+                cell.classList.add('datepicker__day--prev');
+                currentMonthFlag = false;
+            } else if (i < prevMonthDaysToShow + daysInMonth) {
+                dayNum = i - prevMonthDaysToShow + 1;
+                cellDate = new Date(currentYear, currentMonth, dayNum);
+                cell.setAttribute('data-current-month', 'true');
+                currentMonthFlag = true;
+            } else {
+                dayNum = i - (prevMonthDaysToShow + daysInMonth) + 1;
+                let nextMonth = currentMonth + 1;
+                let nextYear = currentYear;
+                if (nextMonth > 11) {
+                    nextMonth = 0;
+                    nextYear++;
+                }
+                cellDate = new Date(nextYear, nextMonth, dayNum);
+                cell.classList.add('datepicker__day--next');
+                currentMonthFlag = false;
             }
-            if (currentDay.getTime() === todayTimestamp) {
-                dayCell.classList.add('today');
-            }
-            calendarEl.appendChild(dayCell);
-        }
+            cell.textContent = dayNum;
+            cell.setAttribute('data-timestamp', cellDate.getTime());
+            cell.setAttribute('data-current-month', currentMonthFlag ? 'true' : 'false');
 
-        let nextMonth = currentMonth + 1;
-        let nextYear = currentYear;
-        if (nextMonth > 11) {
-            nextMonth = 0;
-            nextYear++;
-        }
-        const totalCellsSoFar = prevMonthDaysToShow + daysInMonth;
-        const nextMonthDaysToShow = 42 - totalCellsSoFar;
-
-        for (let i = 1; i <= nextMonthDaysToShow; i++) {
-            const nextDate = new Date(nextYear, nextMonth, i);
-            const dayCell = document.createElement('div');
-            dayCell.className = 'datepicker__cell datepicker__day datepicker__day--next';
-            dayCell.textContent = i;
-            dayCell.setAttribute('data-timestamp', nextDate.getTime());
-            dayCell.setAttribute('data-current-month', 'false');
-            if (this.isDateDisabled(nextDate)) {
-                dayCell.classList.add('disabled');
+            if (this.isDateDisabled(cellDate)) {
+                cell.classList.add('disabled');
             }
-            if (nextDate.getTime() === todayTimestamp) {
-                dayCell.classList.add('today');
+            if (cellDate.getTime() === todayTimestamp) {
+                cell.classList.add('today');
             }
-            calendarEl.appendChild(dayCell);
         }
     }
 
@@ -448,32 +440,35 @@ export class DatePicker {
     renderSelection(hoveredDate) {
         if (this.config.mode !== 'range' || !this.rangeStart) return;
         const days = this.root.querySelectorAll('.datepicker__day[data-current-month="true"]');
-        days.forEach(day => day.classList.remove('selected', 'range-start', 'range-end', 'in-range'));
-
-        if (!this.rangeEnd && hoveredDate && hoveredDate.getTime() === this.rangeStart.getTime()) {
-            const startCell = this.root.querySelector(`.datepicker__day[data-timestamp="${this.rangeStart.getTime()}"][data-current-month="true"]`);
-            if (startCell) startCell.classList.add('selected');
-            return;
-        }
-
         const rangeEndDate = this.rangeEnd || hoveredDate;
-        if (!rangeEndDate) {
+        const start = this.rangeStart < rangeEndDate ? this.rangeStart : rangeEndDate;
+        const end = rangeEndDate ? (this.rangeStart > rangeEndDate ? this.rangeStart : rangeEndDate) : null;
+
+        if (this.prevRange) {
+            this.prevRange.forEach(day => day.classList.remove('selected', 'range-start', 'range-end', 'in-range'));
+        }
+
+        if (!end) {
             const startCell = this.root.querySelector(`.datepicker__day[data-timestamp="${this.rangeStart.getTime()}"][data-current-month="true"]`);
             if (startCell) startCell.classList.add('selected');
+            this.prevRange = [startCell];
             return;
         }
-        const start = this.rangeStart < rangeEndDate ? this.rangeStart : rangeEndDate;
-        const end = this.rangeStart > rangeEndDate ? this.rangeStart : rangeEndDate;
 
+        const newRange = [];
         days.forEach(day => {
             const dayTs = Number(day.getAttribute('data-timestamp'));
             if (dayTs === start.getTime()) {
                 day.classList.add('range-start');
+                newRange.push(day);
             } else if (dayTs === end.getTime()) {
                 day.classList.add('range-end');
+                newRange.push(day);
             } else if (dayTs > start.getTime() && dayTs < end.getTime()) {
                 day.classList.add('in-range');
+                newRange.push(day);
             }
         });
+        this.prevRange = newRange;
     }
 }

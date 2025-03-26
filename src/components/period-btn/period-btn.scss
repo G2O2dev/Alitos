@@ -29,10 +29,6 @@
     }
   }
 
-  &:active {
-    transform: scale(0.95);
-  }
-
   &__date {
     font-size: 15px;
     color: var(--color-text-secondary);

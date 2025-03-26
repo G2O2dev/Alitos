@@ -7,7 +7,6 @@ export class ModalWindow {
     #modalBackground;
     #modalContent;
 
-    // Добавляем свойство onClosed
     onClosed = null;
 
     options = {
@@ -90,7 +89,7 @@ export class ModalWindow {
                 this.#nonModalElements.push(el);
             }
         });
-        // Сохраняем текущий overflow и запрещаем прокрутку
+
         this.#originalBodyOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
     }

@@ -1,36 +1,30 @@
+@import "period-picker";
+
+//#region Main
 .datepicker {
   position: relative;
   overflow: hidden;
-
   display: flex;
   flex-direction: column;
   gap: 5px;
-
   border-radius: 8px;
-
   border: 1px solid var(--color-gray-500);
   background-color: var(--color-bg);
-
   padding: 10px;
 
-  &__months-wrapper, &__year-display {
+  &__months-wrapper,
+  &__year-display {
     cursor: pointer;
     position: absolute;
-
-
     display: flex;
     align-items: center;
     gap: 30px;
-
     height: 26px;
     padding: 0 8px;
-
     border-radius: var(--corner-radius);
-
     color: var(--color-text-secondary);
     font-size: 14px;
-
-    transition: background-color .2s ease-out, color .2s ease-out;
+    transition: background-color 0.2s ease-out, color 0.2s ease-out;
 
     &:hover {
       color: var(--color-text-primary);
@@ -44,18 +38,17 @@
   align-items: center;
   gap: 12px;
 }
+//#endregion
 
+//#region Navigation
 .datepicker__nav-btn {
   cursor: pointer;
   width: 26px;
   height: 26px;
-
   background: none;
   border: none;
   border-radius: var(--corner-radius);
-
-
-  transition: background-color .2s ease-out;
+  transition: background-color 0.2s ease-out;
 
   &:active {
     transform: scale(0.9);
@@ -65,16 +58,13 @@
     content: "";
     width: 100%;
     height: 100%;
-
     display: block;
-
     mask-size: 8px;
     mask-position: center;
     mask-repeat: no-repeat;
     mask-image: url("../assets/img/Arrow.svg");
-
     background-color: var(--color-gray-800);
-    transition: background-color .2s ease-out;
+    transition: background-color 0.2s ease-out;
   }
 
   &--next::after {
@@ -94,20 +84,20 @@
   }
 }
 
-.datepicker-header, .datepicker__month-selection-header {
+.datepicker-header,
+.datepicker__month-selection-header {
   position: relative;
-
   display: flex;
   flex-direction: row;
-
   justify-content: space-between;
   align-items: center;
 }
+//#endregion
 
+//#region Calendar
 .datepicker__calendars {
   display: flex;
   flex-direction: row;
-
   gap: 20px;
 }
 
@@ -123,21 +113,19 @@
 
 .datepicker__cell {
   user-select: none;
-
   display: flex;
   justify-content: center;
   align-items: center;
-
   font-size: 12px;
-
   color: var(--color-text-primary);
+
   &--weekday {
     height: 22px;
-
     color: var(--color-text-secondary);
   }
 
-  &.datepicker__day--prev, &.datepicker__day--next {
+  &.datepicker__day--prev,
+  &.datepicker__day--next {
     color: var(--color-text-quaternary);
   }
 }
@@ -145,22 +133,22 @@
 .datepicker__day {
   position: relative;
   z-index: 2;
-
   cursor: pointer;
 
-  &.range-start, &.in-range, &.range-end, &.range-end-selecting, &.range-start-selecting {
+  &.range-start,
+  &.in-range,
+  &.range-end,
+  &.range-end-selecting,
+  &.range-start-selecting {
     color: var(--color-text-primary);
 
     &::before {
       content: '';
       display: block;
       position: absolute;
-
       z-index: -2;
-
       width: 100%;
       height: 26px;
-
       background-color: var(--color-gray-200);
     }
   }
@@ -168,25 +156,24 @@
   &.today {
     color: var(--color-accent-light);
   }
-  &.range-end-selecting.today, &.range-end.today, &.range-start-selecting.today, &.range-start.today, &.selected.today {
+
+  &.range-end-selecting.today,
+  &.range-end.today,
+  &.range-start-selecting.today,
+  &.range-start.today,
+  &.selected.today {
     color: var(--color-text-primary) !important;
   }
 
-  &.range-end-selecting::before, &.range-end::before {
+  &.range-end-selecting::before,
+  &.range-end::before {
     margin-right: 4px;
-
     border-radius: 0 var(--corner-radius) var(--corner-radius) 0;
   }
 
-  &.range-start-selecting::before, &.range-start::before {
+  &.range-start-selecting::before,
+  &.range-start::before {
     margin-left: 3px;
-
-    border-radius: var(--corner-radius) 0 0 var(--corner-radius);
-  }
-
-  &.range-start-selecting::before, &.range-start::before {
-    margin-left: 3px;
-
     border-radius: var(--corner-radius) 0 0 var(--corner-radius);
   }
 
@@ -194,26 +181,20 @@
     content: '';
     display: block;
     position: absolute;
-
     width: 26px;
     height: 26px;
     border-radius: var(--corner-radius);
-
     z-index: -1;
-
     background: transparent;
-
-    transform: scale(0);
-    transition: transform .2s ease-out, background-color .2s ease-out;
   }
 
   &:hover::after {
-    transform: scale(1);
     background: var(--color-gray-400);
   }
 
-  &.range-start::after, &.range-end::after, &.selected::after {
-    transform: scale(1);
+  &.range-start::after,
+  &.range-end::after,
+  &.selected::after {
     background: var(--color-accent);
   }
 
@@ -227,50 +208,42 @@
   }
 }
 
+//endregion
+
+//#region Month Selection
 .datepicker__month-selection {
   position: absolute;
   z-index: 4;
-
   width: 100%;
   height: 100%;
   left: 0;
   top: 0;
-
   padding: 10px;
   box-sizing: border-box;
-
   display: flex;
   align-items: center;
-
   gap: 10px;
   flex-direction: column;
-
   background-color: var(--color-bg);
 }
 
 .datepicker__month-list {
-  justify-content: center;
-  align-items: center;
-
   display: grid;
   gap: 2px;
   grid-template-columns: repeat(2, 105px);
   grid-template-rows: repeat(6, 1fr);
+  justify-content: center;
+  align-items: center;
 }
 
 .datepicker__month-item {
   cursor: pointer;
-
   font-size: 14px;
   color: var(--color-text-secondary);
-
   list-style-type: none;
-
   padding: 5px 8px;
   box-sizing: border-box;
   border-radius: var(--corner-radius);
-
-  transition: background-color .2s ease-out, color .2s ease-out;
 
   &:hover {
     color: var(--color-text-primary);
@@ -289,16 +262,15 @@
 
 .datepicker__month-selection-header {
   width: 100%;
-
   display: flex;
   justify-content: space-between;
   align-items: center;
 
-  & .datepicker__year-display {
+  .datepicker__year-display {
     left: 50%;
     transform: translateX(-50%);
-
     cursor: default;
+
     &:hover {
       color: var(--color-text-secondary);
       background-color: transparent;
@@ -306,56 +278,4 @@
   }
 }
 
-.period-picker {
-  display: flex;
-  flex-direction: row;
-  gap: 10px;
-
-  & .sidebar {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-
-    order: -1;
-
-    padding: 10px;
-    box-sizing: border-box;
-
-    gap: 2px;
-
-    width: 125px;
-
-    background-color: var(--color-bg);
-    border: 1px solid var(--color-gray-500);
-    border-radius: var(--corner-radius);
-
-    & .sidebar__button {
-      cursor: pointer;
-
-      color: var(--color-text-secondary);
-
-      width: 100%;
-      height: 26px;
-
-      padding-left: 8px;
-      box-sizing: border-box;
-
-      text-align: left;
-
-      border: none;
-      background-color: transparent;
-      border-radius: var(--corner-radius);
-
-      transition: background-color .2s ease-out, color .2s ease-out, transform .2s ease-out;
-
-      &:hover {
-        background-color: var(--color-gray-200);
-        color: var(--color-text-primary);
-      }
-
-      &:active {
-        transform: scale(.95);
-      }
-    }
-  }
-}
+//#endregion

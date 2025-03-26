@@ -1,4 +1,4 @@
-import { DatePicker } from "./data-picker.js";
+import { DatePicker } from "./date-picker.js";
 
 export class AlitosPeriodPicker {
     constructor(target, config) {

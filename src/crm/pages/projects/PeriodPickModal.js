@@ -1,94 +1,90 @@
-import {ModalWindow} from "../../../components/modal/modal.js";
-import {AlitosPeriodPicker} from "../../../components/data-picker/altios-period-picker.js";
+import { ModalWindow } from "../../../components/modal/modal.js";
+import { AlitosPeriodPicker } from "../../../components/data-picker/altios-period-picker.js";
 
 export class PeriodPickModal extends ModalWindow {
     #periodPicker;
     #callingElement;
 
     constructor(config) {
-        super({
-            contentClasses: ['advice-modal'],
-        });
-
+        super({ contentClasses: ['period-pick-modal'] });
         this.config = config;
         this.#periodPicker = new AlitosPeriodPicker(this.contentElement, {
             mode: 'range',
             twoMonths: true,
             ...this.config.datePickerConfig,
-
-            onRangeSelected: (from, to) => this.onRangeSelected(from, to),
+            onRangeSelected: (from, to) => this.onRangeSelected(from, to)
         });
         this.#callingElement = this.config.callingElement || null;
+        this._boundUpdatePositions = this.updatePositions.bind(this);
     }
 
-
-    #placeholderElement;
+    #clonedElement;
 
     show() {
         if (this.#callingElement) {
             const rect = this.#callingElement.getBoundingClientRect();
+            const clone = this.#callingElement.cloneNode(true);
 
-            this.#placeholderElement = document.createElement('div');
-            this.#placeholderElement.style.width = `${rect.width}px`;
-            this.#placeholderElement.style.height = `${rect.height}px`;
+            clone.style.position = 'absolute';
+            clone.style.top = `${rect.top + window.scrollY}px`;
+            clone.style.left = `${rect.left + window.scrollX}px`;
+            clone.style.pointerEvents = 'none';
 
-            this.#callingElement.parentNode.insertBefore(this.#placeholderElement, this.#callingElement.nextSibling);
+            this.modalContainer.appendChild(clone);
+            this.#clonedElement = clone;
 
-            this.modalContainer.appendChild(this.#callingElement);
-            this.#callingElement.style.position = 'absolute';
-            this.#callingElement.style.top = `${rect.top + window.scrollY}px`;
-            this.#callingElement.style.left = `${rect.left + window.scrollX}px`;
-            this.#callingElement.style.pointerEvents = 'none';
+            requestAnimationFrame(() => this.positionModal());
 
-            requestAnimationFrame(() => {
-                const picker = this.#periodPicker.periodPicker;
-                const pickerWidth = picker.offsetWidth;
-                const pickerHeight = picker.offsetHeight;
-
-                let top = rect.bottom + window.scrollY + 10;
-                let left = (rect.left - (pickerWidth / 2)) + window.scrollX;
-
-                const spaceBelow = window.innerHeight - rect.bottom;
-                if (spaceBelow < pickerHeight) {
-                    if (rect.top >= pickerHeight) {
-                        top = rect.top - pickerHeight + window.scrollY;
-                    } else {
-                        top = window.scrollY + Math.max((window.innerHeight - pickerHeight) / 2, 0);
-                    }
-                }
-                if (left + (pickerWidth / 2) > window.innerWidth) {
-                    left = window.innerWidth - pickerWidth + window.scrollX;
-                    left = Math.max(left, window.scrollX);
-                }
-
-                this.contentElement.style.position = 'absolute';
-                this.contentElement.style.top = `${top}px`;
-                this.contentElement.style.left = `${left}px`;
-            })
+            window.addEventListener('scroll', this._boundUpdatePositions);
+            window.addEventListener('resize', this._boundUpdatePositions);
         }
-
         super.open();
+    }
+
+    positionModal() {
+        if (!this.#callingElement) return;
+        const rect = this.#callingElement.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2 + window.scrollX;
+        const modalWidth = this.contentElement.offsetWidth;
+        const modalHeight = this.contentElement.offsetHeight;
+        let left = centerX - modalWidth / 2;
+        let top = rect.top + rect.height + 10;
+        const minX = window.scrollX;
+        const minY = window.scrollY;
+        const maxX = window.innerWidth + window.scrollX - modalWidth;
+        const maxY = window.innerHeight + window.scrollY - modalHeight;
+
+        if (left < minX) left = minX;
+        if (left > maxX) left = maxX;
+        if (top < minY) top = minY;
+        if (top > maxY) top = maxY;
+
+        this.contentElement.style.position = 'absolute';
+        this.contentElement.style.left = `${left}px`;
+        this.contentElement.style.top = `${top}px`;
+    }
+
+    updatePositions() {
+        if (this.#callingElement && this.#clonedElement) {
+            const rect = this.#callingElement.getBoundingClientRect();
+            this.#clonedElement.style.top = `${rect.top + window.scrollY}px`;
+            this.#clonedElement.style.left = `${rect.left + window.scrollX}px`;
+            this.positionModal();
+        }
     }
 
     close() {
         super.close();
 
         this.onClosed = () => {
-            if (this.#callingElement && this.#placeholderElement) {
-                this.#placeholderElement.parentNode.replaceChild(this.#callingElement, this.#placeholderElement);
+            window.removeEventListener('scroll', this._boundUpdatePositions);
+            window.removeEventListener('resize', this._boundUpdatePositions);
 
-                this.#placeholderElement.remove();
-                this.#placeholderElement = null;
-
-                this.#callingElement.style.position = '';
-                this.#callingElement.style.top = '';
-                this.#callingElement.style.left = '';
-                this.#callingElement.style.width = '';
-                this.#callingElement.style.height = '';
-                this.#callingElement.style.pointerEvents = '';
+            if (this.#clonedElement) {
+                this.#clonedElement.remove();
+                this.#clonedElement = null;
             }
-        }
-
+        };
     }
 
     onRangeSelected(from, to) {
