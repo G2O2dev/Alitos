@@ -219,10 +219,9 @@ export class GridManager {
             },
         ];
 
-        const dateFormatter =(params) => {
-            if (!params.value) return "";
-            const date = new Date(params.value);
-            return date.toLocaleDateString("ru-RU", {
+        const dateFormatter = (params) => {
+            if (!params.value || typeof params.value.getMonth !== 'function') return "";
+            return params.value.toLocaleDateString("ru-RU", {
                 day: "2-digit",
                 month: "2-digit",
                 year: "2-digit",
@@ -303,32 +302,21 @@ export class GridManager {
                     return reference;
                 },
                 "sameDate": params => {
-                    let referenceDate = null;
-                    for (let i = 0; i < params.values.length; i++) {
-                        const value = params.values[i];
-                        if (value === '')
-                            continue;
+                    let refDate = null;
+                    for (const value of params.values) {
+                        if (!value) continue;
 
-                        const currentDate = new Date(value);
-                        // Если дата некорректна – пропускаем
-                        if (isNaN(currentDate.getTime()))
-                            continue;
+                        const date = new Date(value);
+                        date.setHours(0, 0, 0, 0);
 
-                        if (!referenceDate) {
-                            referenceDate = currentDate;
-                        } else {
-                            // Сравнение дня, месяца и года
-                            if (
-                                currentDate.getDate() !== referenceDate.getDate() ||
-                                currentDate.getMonth() !== referenceDate.getMonth() ||
-                                currentDate.getFullYear() !== referenceDate.getFullYear()
-                            ) {
-                                return null;
-                            }
+                        if (!refDate) {
+                            refDate = date;
+                        } else if (date.getTime() !== refDate.getTime()) {
+                            return;
                         }
                     }
-                    // Если найдена хотя бы одна корректная дата, возвращаем её в формате "YYYY-MM-DD"
-                    return referenceDate ? toLocalISOString(referenceDate).slice(0, 10) : '';
+
+                    return refDate;
                 },
                 "period": params => {
                     let sum = 0;

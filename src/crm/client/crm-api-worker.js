@@ -104,9 +104,9 @@ function parseAnalytic(analyticHtml) {
             limit: Number(project.lim),
             workdays: project.workdays,
             region_limit: project.regions,
-            creation_date: new Date(project.created_at).toISOString(),
-            edit_date: new Date(project.updated_at).toISOString(),
-            delete_date: deleted ? new Date(project.deleted_at).toISOString() : null,
+            creation_date: new Date(project.created_at),
+            edit_date: new Date(project.updated_at),
+            delete_date: deleted ? new Date(project.deleted_at) : null,
             sources: parseSources(project.content),
             callCounts: callCounts,
         };
