@@ -273,7 +273,7 @@
   width: 100%;
   max-width: 860px;
   height: 100%;
-  max-height: 720px;
+  max-height: 620px;
   padding: 10px;
 }
 .alitos-modal:focus {
@@ -336,7 +336,7 @@
   padding: 10px;
   box-sizing: border-box;
   gap: 2px;
-  width: 125px;
+  width: 110px;
   background-color: var(--color-bg);
   border: 1px solid var(--color-gray-500);
   border-radius: var(--corner-radius);

@@ -14,9 +14,6 @@ export class ProjectPage extends Page {
     #gridLoaded = false;
     #gridLoading = false;
     #deletedLoaded = false;
-    #localAnalysis = {
-        lastProjectsActiveDate: undefined,
-    }
 
     #adviceModal;
     #collectionsModal;

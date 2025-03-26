@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Alitos",
     "description": "Обёртка над CRM BigData, упрощает анализ и управление проектами",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "incognito": "split",
     "icons": {
         "128": "logo-128.png"
@@ -15,12 +15,6 @@
         "tabs"
     ],
     "host_permissions": ["<all_urls>"],
-    "web_accessible_resources": [
-        {
-            "resources": ["src/crm/client/parserWorker.js"],
-            "matches": ["<all_urls>"]
-        }
-    ],
     "background": {
         "service_worker": "src/background/background.js",
         "type": "module"
