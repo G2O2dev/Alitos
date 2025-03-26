@@ -157,8 +157,7 @@ export class ProjectPage extends Page {
                 existingRow.periodsData[periodIndex] = project.callCounts;
             } else {
                 project.periodsData = [project.callCounts];
-                project.callCounts = null;
-                newRows.push(project);
+                newRows.push(structuredClone(project));
             }
         });
         const newRowsLen = newRows.length;
