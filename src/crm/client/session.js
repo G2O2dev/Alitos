@@ -1,22 +1,12 @@
 import crmApi from "./crm-api.js";
 import bigdataApi from "./bigdata-api.js";
+import {DeepCache} from "../../lib/deep-cache.js";
 
 class Session {
-    #periodsData;
-    #projects;
-    #deletedProjects;
-    #RtkAnalytic;
-
-    #clientInfo;
-    #projectsConfig;
+    #cache;
 
     constructor() {
-        this.#periodsData = {};
-        this.#RtkAnalytic = {};
-        this.#projects = undefined;
-        this.#deletedProjects = undefined;
-        this.#clientInfo = undefined;
-        this.#projectsConfig = undefined;
+        this.#cache = new DeepCache();
     }
 
     getAnalyticSliceName(from, to, deleted) {
@@ -32,15 +22,17 @@ class Session {
     }
 
     async getAnalyticBySliceName(sliceName) {
-        if (!(sliceName in this.#periodsData)) {
-            this.#periodsData[sliceName] = crmApi.getAnalytic(sliceName);
-        }
-
-        return structuredClone(await this.#periodsData[sliceName]);
+        return this.#cache.get(
+            `analytic_${sliceName}`,
+            () => crmApi.getAnalytic(sliceName),
+        );
     }
 
-    async hasManagerAccess() {
-        return await bigdataApi.hasManagerAccess();
+    async getManagerInfo() {
+        return this.#cache.get(
+            'manager_info',
+            () => bigdataApi.getManagerInfo(),
+        );
     }
 
     *forEachDayAnalytic(startDate, endDate, deleted) {
@@ -54,54 +46,41 @@ class Session {
     }
 
     async getLimitPotential(date, userId = undefined) {
-        if (userId === undefined)
-            userId = (await this.getClient()).user_id;
+        const actualUserId = userId ?? (await this.getClient()).user_id;
         const formatedDate = crmApi.formatDate(date);
-        const query = `date=${formatedDate}&user_id=${userId}`;
+        const query = `date=${formatedDate}&user_id=${actualUserId}`;
 
-        if (!(query in this.#RtkAnalytic)) {
-            this.#RtkAnalytic[query] = bigdataApi.getLimitPotential(query).then(resp => {
-                if (!resp) {
-                    throw new Error("Не могу получить аналитику РТК");
-                }
+        return this.#cache.get(
+            `rtk_analytic_${query}`,
+            async () => {
+                const resp = await bigdataApi.getLimitPotential(query);
+                if (!resp) throw new Error("Cant load RTK analytic");
                 return resp;
-            });
-        }
-
-        return await this.#RtkAnalytic[query];
+            },
+        );
     }
     async getAnalytic(from, to, deleted) {
         return await this.#getAnalytic(from, to, deleted);
     }
     async getProjects(deleted) {
-        if (deleted) {
-            if (!this.#deletedProjects) {
-                this.#deletedProjects = crmApi.getProjects(true);
-            }
-
-            return await this.#deletedProjects;
-        } else {
-            if (!this.#projects) {
-                this.#projects = crmApi.getProjects(false);
-            }
-
-            return await this.#projects;
-        }
+        const cacheKey = deleted ? 'deleted_projects' : 'active_projects';
+        return this.#cache.get(
+            cacheKey,
+            () => crmApi.getProjects(deleted),
+        );
     }
 
     async getClient() {
-        if (!this.#clientInfo) {
-            this.#clientInfo = crmApi.getClient();
-        }
-
-        return await this.#clientInfo;
+        return this.#cache.get(
+            'client_info',
+            () => crmApi.getClient(),
+        );
     }
     async getProjectsConfig() {
-        if (!this.#projectsConfig) {
-            this.#projectsConfig = crmApi.getProjectsConfig();
-        }
-
-        return await this.#projectsConfig;
+        return this.#cache.get(
+            'projects_config',
+            () => crmApi.getProjectsConfig(),
+        );
     }
 }
 

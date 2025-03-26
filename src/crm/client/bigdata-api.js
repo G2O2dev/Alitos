@@ -1,6 +1,4 @@
 class BigdataApi {
-    #managerInfo;
-
     async fetch(url, params) {
         return await fetch("https://gck.bigdata-it.ru" + url, params);
     }
@@ -13,27 +11,13 @@ class BigdataApi {
         }
     }
 
-    async hasManagerAccess() {
-        try {
-            const managerInfo = await this.getManagerInfo();
-            if (managerInfo.role === "Manager") {
-                return true;
-            }
-        } catch { }
-
-        return false;
-    }
     async getManagerInfo() {
-        if (this.#managerInfo === undefined) {
-            const resp = await this.fetch("/admin/user/account", {
-                credentials: "include"
-            });
-            const html = await resp.text();
+        const resp = await this.fetch("/admin/user/account", {
+            credentials: "include"
+        });
+        const html = await resp.text();
 
-            this.#managerInfo = this.#parseManagerInfo(html);
-        }
-
-        return this.#managerInfo;
+        return this.#parseManagerInfo(html);
     }
     async getLimitPotential(query) {
         const resp = await this.fetch(`/admin/gck/analytics-projects-load?${query}`);

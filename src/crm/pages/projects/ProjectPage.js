@@ -215,7 +215,8 @@ export class ProjectPage extends Page {
             }
         }
 
-        if (await session.hasManagerAccess()) {
+        const managerInfo = await session.getManagerInfo();
+        if (managerInfo.role === "Manager") {
             try {
                 const limitPotential = await session.getLimitPotential(new Date());
                 for (const aProject of limitPotential) {
