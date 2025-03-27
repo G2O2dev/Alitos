@@ -25,14 +25,14 @@ body {
   color: var(--color-text-primary);
 
   border-radius: var(--corner-radius);
-  background: var(--color-gray-200);
-  border: 1px solid var(--color-gray-400);
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-gray-300);
   transition: background-color 0.2s ease-out, border-color 0.2s ease-out;
 }
 
 .analyze-btn:hover {
-  background: var(--color-gray-400);
-  border: 1px solid var(--color-gray-500);
+  background: var(--color-gray-200);
+  border: 1px solid var(--color-gray-400);
 }
 
 //#endregion

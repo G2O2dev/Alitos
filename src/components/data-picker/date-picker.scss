@@ -149,20 +149,20 @@
       z-index: -2;
       width: 100%;
       height: 26px;
-      background-color: var(--color-gray-200);
+      background-color: var(--color-gray-100);
+    }
+  }
+
+  .datepicker__day {
+    &.range-start, &.range-end, &.selected {
+      &::after {
+        background: var(--color-gray-400);
+      }
     }
   }
 
   &.today {
-    color: var(--color-accent-light);
-  }
-
-  &.range-end-selecting.today,
-  &.range-end.today,
-  &.range-start-selecting.today,
-  &.range-start.today,
-  &.selected.today {
-    color: var(--color-text-primary) !important;
+    color: var(--color-text-green);
   }
 
   &.range-end-selecting::before,
@@ -173,7 +173,7 @@
 
   &.range-start-selecting::before,
   &.range-start::before {
-    margin-left: 3px;
+    margin-left: 4px;
     border-radius: var(--corner-radius) 0 0 var(--corner-radius);
   }
 
@@ -189,13 +189,7 @@
   }
 
   &:hover::after {
-    background: var(--color-gray-400);
-  }
-
-  &.range-start::after,
-  &.range-end::after,
-  &.selected::after {
-    background: var(--color-accent);
+    background: var(--color-gray-200);
   }
 
   &.disabled {
@@ -204,6 +198,16 @@
 
     &::after {
       display: none;
+    }
+  }
+}
+
+:root.dark {
+  .datepicker__day {
+    &.range-start::after,
+    &.range-end::after,
+    &.selected::after {
+      background: var(--color-gray-400);
     }
   }
 }

@@ -9,10 +9,10 @@
 
   height: 34px;
 
-  border: 1px solid var(--color-gray-400);
+  border: 1px solid var(--color-gray-300);
   box-sizing: border-box;
 
-  background-color: var(--color-gray-200);
+  background-color: var(--color-gray-100);
   border-radius: var(--corner-radius);
   transition: background-color 0.25s ease-out, border-color 0.25s ease-out, transform 0.25s ease-out;
 
@@ -21,15 +21,15 @@
   }
 
   &:hover {
-    border-color: var(--color-gray-500);
-    background-color: var(--color-gray-300);
+    border-color: var(--color-gray-400);
+    background-color: var(--color-gray-200);
 
     &__date {
       color: var(--color-text-primary);
     }
   }
 
-  &__date {
+  &__date, &__label {
     font-size: 15px;
     color: var(--color-text-secondary);
 
@@ -59,7 +59,7 @@
     }
 
     &:hover {
-      background-color: var(--color-gray-200);
+      background-color: var(--color-gray-100);
     }
   }
 }

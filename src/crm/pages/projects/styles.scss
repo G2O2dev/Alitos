@@ -84,13 +84,13 @@
   background-color: var(--color-bg);
 }
 
-.lead-cell {
+.leads-cell {
   background-color: hsla(var(--color-green), 0.08);
 }
 .missed-cell {
   background-color: hsla(var(--color-blue), 0.08);
 }
-.decline-cell {
+.declined-cell {
   background-color: hsla(var(--color-red), 0.08);
 }
 .project-limited {
@@ -157,10 +157,10 @@
 
   padding-right: 6px;
   padding-left: 8px;
-  border: 1px solid var(--color-gray-400);
+  border: 1px solid var(--color-gray-300);
   box-sizing: border-box;
 
-  background-color: var(--color-gray-200);
+  background-color: var(--color-gray-100);
   border-radius: var(--corner-radius);
   transition: background-color 0.25s ease-out, border-color 0.25s ease-out, transform 0.25s ease-out, color 0.25s ease-out;
 
@@ -170,7 +170,7 @@
     align-items: center;
 
     border-radius: var(--corner-radius);
-    background-color: var(--color-gray-500);
+    background-color: var(--color-gray-300);
 
     font-size: 15px;
     line-height: 22px;
@@ -181,8 +181,8 @@
 
   &:hover {
     color: var(--color-text-primary);
-    border-color: var(--color-gray-500);
-    background-color: var(--color-gray-300);
+    border-color: var(--color-gray-400);
+    background-color: var(--color-gray-200);
   }
 
   &:active {
@@ -329,16 +329,16 @@
   height: 34px;
   width: 34px;
 
-  border: 1px solid var(--color-gray-400);
+  border: 1px solid var(--color-gray-300);
   box-sizing: border-box;
 
-  background-color: var(--color-gray-200);
+  background-color: var(--color-gray-100);
   border-radius: var(--corner-radius);
   transition: background-color 0.25s ease-out, border-color 0.25s ease-out, transform 0.25s ease-out;
 
   &:hover {
-    border-color: var(--color-gray-500);
-    background-color: var(--color-gray-300);
+    border-color: var(--color-gray-400);
+    background-color: var(--color-gray-200);
 
     &::after {
       background-color: var(--color-gray-900);
