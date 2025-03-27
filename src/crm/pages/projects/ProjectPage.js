@@ -20,10 +20,12 @@ export class ProjectPage extends Page {
 
     constructor() {
         super('projects');
-        this.gridManager = new GridManager("#grid");
-        this.#setupEvents();
-
         this.#periods = this.#getDefaultPeriods();
+        this.gridManager = new GridManager({
+            selector: "#grid",
+            periods: this.#periods,
+        });
+        this.#setupEvents();
     }
     show() {
         super.show();
@@ -32,7 +34,6 @@ export class ProjectPage extends Page {
 
         this.setLoading(true);
         this.#setupPeriodBtns();
-        this.gridManager.init(this.#periods);
         this.#initSearch();
 
         this.loadGridData(false).then(() => {
@@ -74,8 +75,6 @@ export class ProjectPage extends Page {
                 btns.forEach(btn => btn.setAllowedRange(createdAt, now));
             })
         }
-
-
     }
     #setupEvents() {
         this.element.querySelectorAll(".toggle-btn").forEach(btn => {
@@ -131,7 +130,7 @@ export class ProjectPage extends Page {
         const analytic = await session.getAnalytic(period.from, period.to, false);
         await this.#applyAnalyticToGridRows(analytic, index);
     }
-    #newPeriod(from, to) {
+    #addPeriod(from, to) {
 
     }
 
@@ -139,10 +138,10 @@ export class ProjectPage extends Page {
         const now = new Date();
         const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
         const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
 
         return [
-            { from: yearAgo, to: now, name: "Год" },
-            { from: monthAgo, to: now, name: "Месяц" }
+            { from: weekAgo, to: now, name: "Неделя" }
         ];
     }
 
@@ -175,9 +174,6 @@ export class ProjectPage extends Page {
 
         this.gridManager.refreshCells();
     }
-    #applyManagerInfoToGridRows(projectsInfo) {
-
-    }
     async #loadLimitRate(deleted) {
         const rows = this.gridManager.rows;
         if (rows.size === 0) return;
@@ -196,6 +192,7 @@ export class ProjectPage extends Page {
         for (const dayData of daysData) {
             for (const aProject of dayData) {
                 const project = rows.get(aProject.id);
+
                 if (project && aProject.callCounts.processed >= project.limit) {
                     limitTouches.set(aProject.id, (limitTouches.get(aProject.id) || 0) + 1);
                 }
@@ -204,6 +201,7 @@ export class ProjectPage extends Page {
 
         for (const row of rows.values()) {
             const touches = limitTouches.get(row.id) || 0;
+
             if (touches >= 3) {
                 row.limitState = "warning";
             } else if (touches > 0) {
@@ -212,7 +210,7 @@ export class ProjectPage extends Page {
         }
 
         const managerInfo = await session.getManagerInfo();
-        if (managerInfo.role === "Manager") {
+        if (managerInfo?.role === "Manager") {
             try {
                 const limitPotential = await session.getLimitPotential(new Date());
                 for (const aProject of limitPotential) {

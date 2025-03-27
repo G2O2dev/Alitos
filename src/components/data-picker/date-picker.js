@@ -445,7 +445,7 @@ export class DatePicker {
         const end = rangeEndDate ? (this.rangeStart > rangeEndDate ? this.rangeStart : rangeEndDate) : null;
 
         if (this.prevRange) {
-            this.prevRange.forEach(day => day.classList.remove('selected', 'range-start', 'range-end', 'in-range'));
+            this.prevRange.forEach(day => day?.classList.remove('selected', 'range-start', 'range-end', 'in-range'));
         }
 
         if (!end) {

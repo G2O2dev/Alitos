@@ -22,6 +22,7 @@ class Session {
     }
 
     async getAnalyticBySliceName(sliceName) {
+        console.log(sliceName);
         return this.#cache.get(
             `analytic_${sliceName}`,
             () => crmApi.getAnalytic(sliceName),

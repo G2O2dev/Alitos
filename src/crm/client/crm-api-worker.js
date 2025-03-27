@@ -81,6 +81,19 @@ function countCalls(project) {
         },
     };
 }
+function encryptOperator(operator) {
+    switch (operator) {
+        case 'rt':
+            return 'B1';
+        case 'bl':
+            return 'B2';
+        case 'mt':
+            return 'B3';
+        case 'mg':
+            return 'B4';
+    }
+}
+
 function parseAnalytic(analyticHtml) {
     const match = analyticHtml.match(/projects:\s*(\[[\s\S]*?\])/);
     if (!match) {
@@ -93,14 +106,18 @@ function parseAnalytic(analyticHtml) {
     return analytic.map(project => {
         const callCounts = countCalls(project);
         const deleted = project.deleted_at !== null;
+        let autoName = (project.name ? project.name : project.tag) + (project.name && project.tag ? ' (' + project.tag + ')' : '');
+        if (autoName[0] === 'B' && autoName[2] === '_')
+            autoName = autoName.substring(3, autoName.length);
 
         return {
             id: project.id,
             tag: project.tag,
             name: project.name,
+            autoName: autoName,
             state: deleted ? "Удалён" : project.status === 1 ? "Активен" : "Неактивен",
             project_type: assocType(project.type),
-            operator: project.src,
+            operator: encryptOperator(project.src),
             limit: Number(project.lim),
             workdays: project.workdays,
             region_limit: project.regions,

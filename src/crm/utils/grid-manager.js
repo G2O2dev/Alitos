@@ -12,8 +12,8 @@ import crmApi from "../client/crm-api.js";
 export class GridManager {
     _deletedShown = false;
     _rows = new Map();
-    _groupedRows = new Map();
     _searchCache = {};
+    #colDefs;
 
     gridApi = null;
     gridElement = null;
@@ -21,11 +21,14 @@ export class GridManager {
     isPercentSorting = false;
     sourcesGrouping = false;
 
-    /**
-     * @param {string} selector CSS-селектор для контейнера грида.
-     */
-    constructor(selector) {
+    constructor(config) {
+        const { selector, periods } = config;
         this.gridElement = document.querySelector(selector);
+
+        this.gridOptions = this.#buildGridOptions(periods);
+        this.gridApi = agGrid.createGrid(this.gridElement, this.gridOptions);
+
+        this.#registerGlobalEvents();
     }
 
     get deletedShown() {
@@ -39,27 +42,12 @@ export class GridManager {
     get rows() {
         return this._rows;
     }
-    /**
-     * Устанавливает новые строки, принимает массив объектов.
-     * @param {Array<Object>} values
-     */
     set rows(values) {
         this._rows.clear();
         values.forEach(row => this._rows.set(row.id, row));
     }
 
-    init(periods) {
-        this.gridOptions = this._buildGridOptions(periods);
-        this.gridApi = agGrid.createGrid(this.gridElement, this.gridOptions);
-
-        this._registerGlobalEvents();
-    }
-
-    /**
-     * Строит и возвращает объект настроек для agGrid.
-     * @returns {Object}
-     */
-    _buildGridOptions(periods) {
+    #buildGridOptions(periods) {
         const theme = agGrid.themeQuartz.withParams({
             fontFamily: 'SFPro, Tahoma',
             headerFontFamily: 'SFPro, Tahoma',
@@ -92,10 +80,20 @@ export class GridManager {
                 maxWidth: 90,
                 resizable: false,
                 filter: false,
-                tooltipValueGetter: params => this._getTooltip(params),
+                tooltipValueGetter: params => this.#getTooltip(params),
             },
-            { headerName: 'Тег', field: 'tag', minWidth: 70, filter: false, aggFunc: "same", },
-            { headerName: 'Название', field: 'name', minWidth: 120, resizable: false, filter: false, aggFunc: "name" },
+            {
+                headerName: '',
+                field: 'operator',
+                minWidth: 43,
+                maxWidth: 43,
+                resizable: false,
+                filterParams: { suppressMiniFilter: true },
+                headerTooltip: 'Оператор.\nB1 - Ростелеком\nB2 - Билайн\nB3 - МТС\nB4 - Мегафон',
+            },
+            { headerName: 'Автоназвание', field: 'autoName', minWidth: 120, filter: false, aggFunc: "same", headerTooltip: 'Автоназвание компилирует название и тег в формате: Название (Тег)', },
+            { headerName: 'Тег', field: 'tag', minWidth: 70, filter: false, aggFunc: "same", hide: true },
+            { headerName: 'Название', field: 'name', minWidth: 120, resizable: false, filter: false, aggFunc: "name", hide: true },
             {
                 headerName: 'Статус',
                 field: 'state',
@@ -103,8 +101,9 @@ export class GridManager {
                 maxWidth: 120,
                 resizable: false,
                 filterParams: { suppressMiniFilter: true },
-                aggFunc: "active/inactive",
-                cellClass: info => this._getCellClassByStatus(info.data),
+                aggFunc: "activeInactive",
+                cellClass: info => this.#getCellClassByStatus(info.data),
+                headerTooltip: 'Текущий статус проекта. Если ячейка:\nЖёлтая — при последней отправке лимит проекта был снижен системой из-за нехватки баланса.\nКрасная — проект не был отправлен из-за нехватки баланса.',
             },
             {
                 headerName: 'Тип',
@@ -112,15 +111,15 @@ export class GridManager {
                 minWidth: 120,
                 maxWidth: 120,
                 resizable: false,
-                cellRenderer: params => this._projectTypeRenderer(params),
-                headerTooltip: 'Тип источников и их количество в проекте',
+                cellRenderer: params => this.#projectTypeRenderer(params),
+                headerTooltip: 'Тип проекта и количество источников',
                 filterParams: { suppressMiniFilter: true },
                 aggFunc: "same",
             },
         ];
 
         // Периодические колонки (например, Год, Месяц)
-        const periodsColumns = this._getPeriodsColumns(["1", "2"]);
+        const periodsColumns = this.#buildPeriodColumns(0);
 
         const limitCellClass = params => {
             switch (params.data?.limitState) {
@@ -142,23 +141,19 @@ export class GridManager {
 
         // Скрытые колонки
         const hiddenColumns = [
-            this._createNumberColumn('Лимит', 'limit', {
-                defaultOption: 'greaterThan',
-                filterOptions: ['equals', 'notEqual', 'greaterThan', 'lessThan', 'inRange'],
-            }, 'Лимит проекта', limitCellRenderer, limitCellClass, true),
-            this._createNumberColumn('Номеров сегодня', 'today_numbers', { defaultOption: 'greaterThan' }, 'Номеров получено сегодня', null, null, true),
-            {
-                headerName: 'Рабочие дни',
-                field: 'workdays',
-                minWidth: 160,
-                maxWidth: 180,
-                resizable: false,
-                filter: 'agTextColumnFilter',
-                filterParams: { defaultOption: 'contains' },
-                headerTooltip: 'В какие дни работает проект',
-                hide: true,
-                aggFunc: "same",
-            },
+            // this.#createNumberColumn('Номеров сегодня', 'today_numbers', { defaultOption: 'greaterThan' }, 'Номеров получено сегодня', null, null, true),
+            // {
+            //     headerName: 'Рабочие дни',
+            //     field: 'workdays',
+            //     minWidth: 160,
+            //     maxWidth: 180,
+            //     resizable: false,
+            //     filter: 'agTextColumnFilter',
+            //     filterParams: { defaultOption: 'contains' },
+            //     headerTooltip: 'В какие дни работает проект',
+            //     hide: true,
+            //     aggFunc: "same",
+            // },
             {
                 headerName: 'Регион',
                 field: 'region_limit',
@@ -207,8 +202,8 @@ export class GridManager {
                 valueFormatter: p => dateFormatter(p),
                 aggFunc: "sameDate",
             },
-            this._createNumberColumn('Дублей всего', 'duplicate_count', { defaultOption: 'greaterThan' }, null, null, null, true),
-            this._createNumberColumn('Дублей сегодня', 'today_duplicate_count', { defaultOption: 'greaterThan' }, null, null, null, true),
+            this.#createNumberColumn('Дублей всего', 'duplicate_count', { defaultOption: 'greaterThan' }, null, null, null, true),
+            this.#createNumberColumn('Дублей сегодня', 'today_duplicate_count', { defaultOption: 'greaterThan' }, null, null, null, true),
 
             {
                 headerName: 'Источник',
@@ -228,7 +223,14 @@ export class GridManager {
             });
         }
 
-        basicColumns = basicColumns.concat(periodsColumns, hiddenColumns);
+        const afterPeriodsColumns = [
+            this.#createNumberColumn('Лимит', 'limit', {
+                defaultOption: 'greaterThan',
+                filterOptions: ['equals', 'notEqual', 'greaterThan', 'lessThan', 'inRange'],
+            }, 'Лимит проекта. Если ячейка:\nГолубая — проект коснулся лимита 1 или 2 раза за последние 7 дней.\nЗелёная — проект коснулся лимита более 2 раз за последние 7 дней.', limitCellRenderer, limitCellClass),
+        ];
+
+        this.#colDefs = basicColumns.concat(periodsColumns, afterPeriodsColumns, hiddenColumns);
 
         return {
             theme,
@@ -240,7 +242,7 @@ export class GridManager {
             rowData: null,
 
             isExternalFilterPresent: () => true,
-            doesExternalFilterPass: node => this._filter(node),
+            doesExternalFilterPass: node => this.#filter(node),
             getRowId: params => typeof params.data === 'string' ? params.data : params.data.id,
             cellSelection: {
                 suppressMultiRanges: true,
@@ -253,7 +255,7 @@ export class GridManager {
                 suppressHeaderMenuButton: true,
             },
             aggFuncs: {
-                "active/inactive": params => {
+                activeInactive: params => {
                     let active = 0;
                     let inactive = 0;
                     let deleted = 0;
@@ -282,7 +284,7 @@ export class GridManager {
 
                     return `${active} / ${inactive}${deleted ? ` / ${deleted}` : ''}`;
                 },
-                "same": params => {
+                same: params => {
                     let reference = params.values[0];
                     for (let i = 1; i < params.values.length; i++) {
                         const value = params.values[i];
@@ -301,7 +303,7 @@ export class GridManager {
 
                     return reference;
                 },
-                "sameDate": params => {
+                sameDate: params => {
                     let refDate = null;
                     for (const value of params.values) {
                         if (!value) continue;
@@ -318,7 +320,7 @@ export class GridManager {
 
                     return refDate;
                 },
-                "period": params => {
+                period: params => {
                     let sum = 0;
                     const periodId = params.colDef.context.periodId;
                     const field = params.colDef.field;
@@ -342,7 +344,7 @@ export class GridManager {
                     countChildLeaf(params.rowNode);
                     return sum;
                 },
-                "name": params => {
+                name: params => {
                     let reference = params.values[0];
                     if (reference && reference.length > 3) {
                         reference = reference.slice(3);
@@ -370,15 +372,15 @@ export class GridManager {
                     return reference;
                 }
             },
-            columnDefs: basicColumns,
+            columnDefs: this.#colDefs,
             autoGroupColumnDef: {
                 minWidth: 160,
                 maxWidth: 320,
                 headerName: 'Источник',
                 // cellRenderer: 'agGroupCellRenderer',
             },
-            onGridSizeChanged: params => this._fitColumns(params),
-            onFirstDataRendered: params => this._fitColumns(params),
+            onGridSizeChanged: params => this.#fitColumns(params),
+            onFirstDataRendered: params => this.#fitColumns(params),
             getContextMenuItems: ({ defaultItems, column }) => {
                 const newDefaultItems = defaultItems?.filter(i =>
                     !['cut', 'copyWithHeaders', 'copyWithGroupHeaders', 'paste'].includes(i)
@@ -428,25 +430,23 @@ export class GridManager {
                 return filtered;
             },
             onColumnVisible: ({ api }) => api.sizeColumnsToFit(),
-            sendToClipboard: this._sendSelectedToClipboard,
-            onFilterChanged: () => {
-                // После аггрегации проценты не перерендериваються
-                const groupNodes = [];
-
-                this.gridApi.forEachNode((n) => {
-                    if (n.group === true)
-                        groupNodes.push(n);
-                })
-                this.gridApi.refreshCells({ force: true });
-            }
+            sendToClipboard: this.#sendSelectedToClipboard,
+            onFilterChanged: () => this.#refreshAggregated(),
         };
     }
 
-    /**
-     * Регистрирует глобальные события для грида (например, горячие клавиши).
-     * @private
-     */
-    _registerGlobalEvents() {
+    #refreshAggregated() {
+        const groupNodes = [];
+        this.gridApi.forEachNode(node => {
+            if (node.group) groupNodes.push(node);
+        });
+        this.gridApi.refreshCells({
+            rowNodes: groupNodes,
+            force: true
+        });
+    }
+
+    #registerGlobalEvents() {
         this.gridElement.addEventListener('keydown', (e) => {
             if (e.key === 'Delete') {
                 const selectedCells = this.gridApi.getCellRanges()[0];
@@ -455,6 +455,7 @@ export class GridManager {
                     this.gridApi.clearCellSelection();
                     this.gridApi.clearFocusedCell();
                     this.gridApi.applyTransaction({ remove: toRemove });
+                    this.gridApi.refreshCells({ force: true });
                 }
             }
             if (e.ctrlKey && e.shiftKey && e.code === "KeyC") {
@@ -463,30 +464,20 @@ export class GridManager {
         });
     }
 
-    /**
-     * Отрисовка типа проекта с указанием количества источников.
-     * @private
-     */
-    _projectTypeRenderer({ value, data }) {
+    #projectTypeRenderer({ value, data }) {
         return data?.sources
             ? `${value} <span class="sources_count">${data.sources.length}</span>`
             : value;
     }
 
-    _getCellClassByStatus(data) {
+    #getCellClassByStatus(data) {
         if (!data || data.state !== 'Активен' || data.project_state === null) return '';
         return data.project_state === 0 ? 'project-limited-completely'
             : data.project_state > 0 ? 'project-limited' : '';
     }
 
-    /**
-     * Возвращает настройки для периодических колонок.
-     * @param {Array<string>} periodLabels
-     * @returns {Array<Object>}
-     * @private
-     */
-    _getPeriodsColumns(periodLabels) {
-        const createPeriodColumn = (header, field, headerTooltip, cellRenderer, cellClass, periodId, hide) => {
+    #buildPeriodColumns(periodDataIndex, periodName = '', visibleColumns = ['processed', 'leads', 'missed', 'declined']) {
+        const createPeriodColumn = (header, field, headerTooltip, cellRenderer, cellClass) => {
             const colDef = {
                 headerName: header,
                 field,
@@ -545,16 +536,14 @@ export class GridManager {
                     return a - b;
                 },
                 context: {
-                    periodId: periodId
+                    periodId: periodDataIndex
                 },
                 valueGetter: periodValueGetter,
-                hide: hide,
             };
             if (cellRenderer) colDef.cellRenderer = cellRenderer;
             if (cellClass) colDef.cellClass = cellClass;
             return colDef;
         };
-
         const periodValueGetter = (params) => {
             const periodId = params.colDef.context.periodId;
             const filed = params.colDef.field;
@@ -566,7 +555,6 @@ export class GridManager {
 
             return fieldData.value !== undefined ? (this.isPercentSorting ? fieldData.percent : fieldData.value) : fieldData;
         }
-
         const cellRender = (params, showPercent = true) => {
             const { field } = params.colDef;
             const periodId = params.colDef.context.periodId;
@@ -601,133 +589,63 @@ export class GridManager {
             return `${value} <span class="percent">${percentStr}%</span>`;
         };
 
+        const getColumnNameByField = (field) => {
+            switch (field) {
+                case 'processed':
+                    return 'Номера';
+                case 'leads':
+                    return 'Лиды';
+                case 'missed':
+                    return 'Недозвоны';
+                case 'declined':
+                    return 'Отказы';
+
+                case 'crm_base':
+                    return 'База';
+                case 'crm_missed':
+                    return 'Недозвон';
+                case 'crm_conversation':
+                    return 'Переговоры';
+                case 'crm_payexpect':
+                    return 'Ожидаем оплаты';
+                case 'crm_partner':
+                    return 'Партнёрка';
+                case 'crm_payed':
+                    return 'Оплачено';
+                case 'crm_closed':
+                    return 'Закрыто и не реализовано';
+                case 'crm_test':
+                    return 'Тест драйв';
+                case 'crm_hot':
+                    return 'Горячий';
+                case 'crm_finalymissed':
+                    return 'Конечный недозвон';
+                default:
+                    return field;
+            }
+        };
+
         const columns = [];
-        for (const i of range(0, periodLabels.length - 1)) {
-            const periodLabel = periodLabels[i];
-            columns.push(
-                createPeriodColumn(
-                    `Номера ${periodLabel}`,
-                    `processed`,
-                    `Количество номеров за ${periodLabel} период`,
-                    params => cellRender(params, false),
-                    null,
-                    i,
-                ),
-                createPeriodColumn(
-                    `Лиды ${periodLabel}`,
-                    `leads`,
-                    `Количество лидов за ${periodLabel} период`,
-                    cellRender,
-                    'lead-cell',
-                    i
-                ),
-                createPeriodColumn(
-                    `Недозвон ${periodLabel}`,
-                    `missed`,
-                    `Количество недозвонов за ${periodLabel} период`,
-                    cellRender,
-                    'missed-cell',
-                    i
-                ),
-                createPeriodColumn(
-                    `Отказы ${periodLabel}`,
-                    `declined`,
-                    `Количество отказов за ${periodLabel} период`,
-                    cellRender,
-                    'decline-cell',
-                    i
-                ),
-                // createPeriodColumn(
-                //     `Закрыто и не реализовано ${periodLabel} (CRM)`,
-                //     `declined-crm`,
-                //     `Количество 'Закрыто и не реализовано' за ${periodLabel} (CRM)`,
-                //     cellRender,
-                //     'decline-crm-cell',
-                //     i,
-                //     true
-                // ),
-                // createPeriodColumn(
-                //     `База ${periodLabel} (CRM)`,
-                //     `base-crm`,
-                //     `Количество 'База' за ${periodLabel} (CRM)`,
-                //     cellRender,
-                //     'base-crm-cell',
-                //     i,
-                //     true
-                // ),
-                // createPeriodColumn(
-                //     `Переговоры ${periodLabel} (CRM)`,
-                //     `conversation-crm`,
-                //     `Количество 'Переговоры' за ${periodLabel} (CRM)`,
-                //     cellRender,
-                //     'conversation-crm-cell',
-                //     i,
-                //     true
-                // ),
-                // createPeriodColumn(
-                //     `Ожидаем оплаты ${periodLabel} (CRM)`,
-                //     `paywaiting-crm`,
-                //     `Количество 'Ожидаем оплаты' за ${periodLabel} (CRM)`,
-                //     cellRender,
-                //     'paywaiting-crm-cell',
-                //     i,
-                //     true
-                // ),
-                // createPeriodColumn(
-                //     `Партнёрка ${periodLabel} (CRM)`,
-                //     `affiliate-crm`,
-                //     `Количество 'Партнёрка' за ${periodLabel} (CRM)`,
-                //     cellRender,
-                //     'affiliate-crm-cell',
-                //     i,
-                //     true
-                // ),
-                // createPeriodColumn(
-                //     `Оплачено ${periodLabel} (CRM)`,
-                //     `paid-crm`,
-                //     `Количество 'Оплачено' за ${periodLabel} (CRM)`,
-                //     cellRender,
-                //     'paid-crm-cell',
-                //     i,
-                //     true
-                // ),
+        for (const columnField of visibleColumns) {
+            const columnName = getColumnNameByField(columnField);
+            const column = createPeriodColumn(
+                `${columnName}${periodName ? ` ${periodName}` : ''}`,
+                columnField,
+                `Количество '${columnName}' за ${periodName} период`,
+                params => cellRender(params, columnField !== 'processed'),
+                columnField + "-cell",
             );
+            columns.push(column);
         }
         return columns;
     }
 
-    /**
-     * Копирует источники выбранных строк в буфер обмена.
-     */
-    copySourcesOfSelected() {
-        const toCopy = this.getSelectedRows().map(row => row.data.sources);
-        navigator.clipboard.writeText(toCopy.toString());
-    }
-
-    /**
-     * Переключает режим сортировки по проценту.
-     * @returns {boolean} Новое состояние флага.
-     */
-    togglePercentSort() {
-        this.isPercentSorting = !this.isPercentSorting;
-        this.gridApi.refreshClientSideRowModel('sort');
-        return this.isPercentSorting;
-    }
-
-    /**
-     * Отправляет выбранные данные в буфер обмена.
-     * @private
-     */
-    _sendSelectedToClipboard = params => {
+    #sendSelectedToClipboard = params => {
         const text = params.data.split("\r\n").join(", ");
         navigator.clipboard.writeText(text);
     };
 
-    /**
-     * Генерирует тултип для строки. Отображая данные которые не видно.
-     * @private
-     */
-    _getTooltip(params) {
+    #getTooltip(params) {
         if (params.node.rowPinned) return null;
         return params.api
             .getAllGridColumns()
@@ -742,7 +660,7 @@ export class GridManager {
             .join('\n');
     }
 
-    _createNumberColumn(header, field, filterParams, headerTooltip, cellRenderer = null, cellClass = null, hide = false) {
+    #createNumberColumn(header, field, filterParams, headerTooltip, cellRenderer = null, cellClass = null, hide = false) {
         const colDef = {
             headerName: header,
             field,
@@ -761,23 +679,11 @@ export class GridManager {
         return colDef;
     }
 
-    _fitColumns(params) {
+    #fitColumns(params) {
         params.api.sizeColumnsToFit();
     }
 
-    search(searchValue) {
-        this.searchValue = searchValue;
-        this.gridApi.onFilterChanged();
-    }
-
-    resetColumns() {
-        this.sourcesGrouping = false;
-        this.gridApi.resetColumnState();
-
-        this.onReset?.();
-    }
-
-    _filter(node) {
+    #filter(node) {
         const { data } = node;
 
         // Пропускаем удалённые элементы, если они не должны отображаться
@@ -839,36 +745,19 @@ export class GridManager {
     }
 
 
-    //#region Rows/Cell API
+    //#region Rows/Cells
     addRows(rows) {
         rows.forEach(row => this._rows.set(row.id, row));
         this.gridApi?.applyTransaction({ add: rows });
     }
-
-    /**
-     * Выполняет перебор всех узлов грида.
-     * @param {Function} callback
-     */
     forEachNode(callback) {
         this.gridApi.forEachNode(callback);
-    }
-
-    /**
-     * Возвращает пиннутую нижнюю строку по индексу.
-     * @param {number} index
-     */
-    getPinnedBottomRow(index) {
-        return this.gridApi.getPinnedBottomRow(index);
     }
 
     refreshCells() {
         this.gridApi.refreshCells({ force: true });
     }
 
-    /**
-     * Возвращает выбранные строки.
-     * @returns {Array<Object>}
-     */
     getSelectedRows() {
         const cellRanges = this.gridApi.getCellRanges();
         if (!cellRanges || !cellRanges[0]) return [];
@@ -882,6 +771,7 @@ export class GridManager {
     }
     //#endregion Rows/Cell API
 
+    //#region Public
     toggleSourcesGrouping() {
         this.sourcesGrouping = !this.sourcesGrouping;
 
@@ -898,8 +788,35 @@ export class GridManager {
 
         return this.sourcesGrouping;
     }
-
-    updatePeriodColumns(periodIndex, newPeriodInfo, periodData) {
-
+    togglePercentSort() {
+        this.isPercentSorting = !this.isPercentSorting;
+        this.gridApi.refreshClientSideRowModel('sort');
+        return this.isPercentSorting;
     }
+
+    search(searchValue) {
+        this.searchValue = searchValue;
+        this.gridApi.onFilterChanged();
+    }
+    copySourcesOfSelected() {
+        const toCopy = this.getSelectedRows().map(row => row.data.sources);
+        navigator.clipboard.writeText(toCopy.toString());
+    }
+
+    resetColumns() {
+        this.sourcesGrouping = false;
+        this.gridApi.resetColumnState();
+
+        this.onReset?.();
+    }
+
+    togglePeriodGrouping() {
+        this.gridApi.updateGridOptions({
+            ...this.gridOptions,
+            columnDefs: [
+                ...this.gridOptions.columnDefs,
+            ]
+        });
+    }
+    //#endregion
 }

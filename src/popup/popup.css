@@ -667,9 +667,9 @@
   --color-text-secondary: hsl(0, 0%, 30%); /* Тёмно-серый */
   --color-text-tertiary: hsl(0, 0%, 50%); /* Средний серый */
   --color-text-quaternary: hsl(0, 0%, 70%); /* Светло-серый */
-  --color-text-goldy: hsl(60, 40%, 25%);
-  --color-text-green: hsl(118, 40%, 25%);
-  --color-text-blue: hsl(211, 40%, 25%);
+  --color-text-goldy: hsl(60, 100%, 30%);
+  --color-text-green: hsl(118, 100%, 30%);
+  --color-text-blue: hsl(211, 100%, 30%);
 }
 
 :root.dark {

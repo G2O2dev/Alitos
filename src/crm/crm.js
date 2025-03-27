@@ -24,16 +24,30 @@ function initSidebar() {
     activeBtn.classList.add("sidebar__item--active");
 
     const sidebarExpandBtn = sidebar.querySelector(".sidebar__expand-btn");
-    sidebarExpandBtn.addEventListener("click", () => {
+
+    function closeSidebar() {
+        sidebar.classList.remove("sidebar--expanded");
+        document.removeEventListener("click", closeSidebar);
+    }
+
+    sidebarExpandBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
         sidebar.classList.toggle("sidebar--expanded");
         isSidebarMinified = !isSidebarMinified;
-    });
 
+        if (sidebar.classList.contains("sidebar--expanded")) {
+            setTimeout(() => {
+                document.addEventListener("click", closeSidebar);
+            }, 0);
+        }
+    });
 
     const navBtns = document.querySelectorAll(".sidebar__item");
     navBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
+            sidebar.classList.remove("sidebar--expanded");
+            document.removeEventListener("click", closeSidebar);
 
             const pageId = btn.getAttribute('data-page');
             if (globalThis.pageNav.navigate(pageId)) {

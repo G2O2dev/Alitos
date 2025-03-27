@@ -201,16 +201,10 @@ async function getWantedNumbersAdvice() {
 
         advice.actions.push({
             name: `Установить ${suggested}`,
-            action: (advice) => {
-
-            }
         });
 
         advice.actions.push({
             name: "Установить своё",
-            action: (advice) => {
-
-            }
         });
 
         return advice;
