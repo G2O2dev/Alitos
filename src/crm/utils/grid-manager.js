@@ -139,21 +139,28 @@ export class GridManager {
             return `${params.value}${potential === undefined ? '' : ` <span class="limitPotential">${potential}</span>`}`;
         }
 
+        const regionCellClass = (params) => {
+            if (!params.data?.region_limit) return;
+
+            return params.data.regions_reverse ? "project-region-reverse" : "project-region";
+        }
+
         // Скрытые колонки
         const hiddenColumns = [
             // this.#createNumberColumn('Номеров сегодня', 'today_numbers', { defaultOption: 'greaterThan' }, 'Номеров получено сегодня', null, null, true),
-            // {
-            //     headerName: 'Рабочие дни',
-            //     field: 'workdays',
-            //     minWidth: 160,
-            //     maxWidth: 180,
-            //     resizable: false,
-            //     filter: 'agTextColumnFilter',
-            //     filterParams: { defaultOption: 'contains' },
-            //     headerTooltip: 'В какие дни работает проект',
-            //     hide: true,
-            //     aggFunc: "same",
-            // },
+            {
+                headerName: 'Дни получения',
+                field: 'workdays',
+                minWidth: 160,
+                maxWidth: 180,
+                resizable: false,
+                filter: 'agTextColumnFilter',
+                filterParams: { defaultOption: 'contains' },
+                headerTooltip: 'В какие дни работает проект',
+                hide: true,
+                aggFunc: "same",
+                valueFormatter: p => weekdaysFormatter(p),
+            },
             {
                 headerName: 'Регион',
                 field: 'region_limit',
@@ -162,9 +169,10 @@ export class GridManager {
                 resizable: false,
                 filter: 'agTextColumnFilter',
                 filterParams: { defaultOption: 'contains' },
-                headerTooltip: 'Регион по которому будет происходить сбор',
+                headerTooltip: 'Ограничение по регионам, отображается в виде кода региона. Если ячейка:\nЗелёная — Номера будут поступать только из этого региона.\nКрасная — Номера будут поступать из всех регионов кроме указанного.',
                 hide: true,
                 aggFunc: "same",
+                cellClass: regionCellClass,
             },
             {
                 headerName: 'Добавлен',
@@ -222,6 +230,46 @@ export class GridManager {
                 year: "2-digit",
             });
         }
+        const weekdaysFormatter = (params) => {
+            if (!params.value) return "";
+
+            const daysMapping = {
+                '1': 'Пн',
+                '2': 'Вт',
+                '3': 'Ср',
+                '4': 'Чт',
+                '5': 'Пт',
+                '6': 'Сб',
+                '7': 'Вс'
+            };
+
+            const daysArr = Array.from(new Set(params.value.split('')))
+                .map(Number)
+                .sort((a, b) => a - b);
+
+            let ranges = [];
+            let start = daysArr[0];
+            let end = daysArr[0];
+
+            for (let i = 1; i < daysArr.length; i++) {
+                if (daysArr[i] === end + 1) {
+                    end = daysArr[i];
+                } else {
+                    ranges.push([start, end]);
+                    start = daysArr[i];
+                    end = daysArr[i];
+                }
+            }
+            ranges.push([start, end]);
+
+            return ranges.map(range => {
+                if (range[0] === range[1]) {
+                    return daysMapping[range[0].toString()] + '.';
+                } else {
+                    return daysMapping[range[0].toString()] + '-' + daysMapping[range[1].toString()];
+                }
+            }).join(' ');
+        }
 
         const afterPeriodsColumns = [
             this.#createNumberColumn('Лимит', 'limit', {
@@ -240,6 +288,8 @@ export class GridManager {
             localeText: AG_GRID_LOCALE_RU,
             grandTotalRow: "bottom",
             rowData: null,
+            suppressAggFuncInHeader: true,
+
 
             isExternalFilterPresent: () => true,
             doesExternalFilterPass: node => this.#filter(node),
@@ -377,6 +427,8 @@ export class GridManager {
                 minWidth: 160,
                 maxWidth: 320,
                 headerName: 'Источник',
+
+
                 // cellRenderer: 'agGroupCellRenderer',
             },
             onGridSizeChanged: params => this.#fitColumns(),

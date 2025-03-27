@@ -170,6 +170,7 @@ export class ProjectPage extends Page {
                 rowData.duplicate_count = project.duplicate_cnt;
                 rowData.today_duplicate_count = project.duplicate_cnt_now;
                 rowData.send_status = project.state;
+                rowData.regions_reverse = project.regions_reverse;
             }
         }
 

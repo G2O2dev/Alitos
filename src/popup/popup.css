@@ -487,8 +487,9 @@
   height: 26px;
   background-color: var(--color-gray-100);
 }
-.datepicker__day .datepicker__day.range-start::after, .datepicker__day .datepicker__day.range-end::after, .datepicker__day .datepicker__day.selected::after {
-  background: var(--color-gray-400);
+.datepicker__day.range-start::after, .datepicker__day.range-end::after, .datepicker__day.selected::after {
+  background: var(--color-gray-300);
+  box-shadow: 0 0 5px 0 var(--color-bg);
 }
 .datepicker__day.today {
   color: var(--color-text-green);
@@ -520,10 +521,6 @@
 }
 .datepicker__day.disabled::after {
   display: none;
-}
-
-:root.dark .datepicker__day.range-start::after, :root.dark .datepicker__day.range-end::after, :root.dark .datepicker__day.selected::after {
-  background: var(--color-gray-400);
 }
 
 .datepicker__month-selection {
