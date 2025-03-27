@@ -169,6 +169,7 @@ export class ProjectPage extends Page {
                 rowData.today_numbers = project.phones_cnt_now;
                 rowData.duplicate_count = project.duplicate_cnt;
                 rowData.today_duplicate_count = project.duplicate_cnt_now;
+                rowData.send_status = project.state;
             }
         }
 

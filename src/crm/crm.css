@@ -752,6 +752,10 @@
   display: none;
 }
 
+.ag-header-cell[col-id=operator] .ag-header-cell-label {
+  display: none;
+}
+
 .ag-tooltip {
   max-width: 400px;
   white-space: pre-line;

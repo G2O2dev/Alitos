@@ -71,7 +71,6 @@ export class GridManager {
             columnBorder: { style: 'solid', width: 1, color: 'var(--color-gray-300)' },
         });
 
-        // Создание базовых колонок, периодов и скрытых колонок
         let basicColumns = [
             {
                 headerName: 'Id',
@@ -81,19 +80,21 @@ export class GridManager {
                 resizable: false,
                 filter: false,
                 tooltipValueGetter: params => this.#getTooltip(params),
+                suppressColumnsToolPanel: true,
+                suppressMovable: true,
             },
             {
-                headerName: '',
+                headerName: 'Оператор',
                 field: 'operator',
-                minWidth: 43,
-                maxWidth: 43,
+                minWidth: 44,
+                maxWidth: 44,
                 resizable: false,
                 filterParams: { suppressMiniFilter: true },
                 headerTooltip: 'Оператор.\nB1 - Ростелеком\nB2 - Билайн\nB3 - МТС\nB4 - Мегафон',
             },
             { headerName: 'Автоназвание', field: 'autoName', minWidth: 120, filter: false, aggFunc: "same", headerTooltip: 'Автоназвание компилирует название и тег в формате: Название (Тег)', },
-            { headerName: 'Тег', field: 'tag', minWidth: 70, filter: false, aggFunc: "same", hide: true },
-            { headerName: 'Название', field: 'name', minWidth: 120, resizable: false, filter: false, aggFunc: "name", hide: true },
+            { headerName: 'Название', field: 'name', minWidth: 120, filter: false, aggFunc: "name", hide: true },
+            { headerName: 'Тег', field: 'tag', minWidth: 70, filter: false, resizable: true, aggFunc: "same", hide: true },
             {
                 headerName: 'Статус',
                 field: 'state',
@@ -118,7 +119,6 @@ export class GridManager {
             },
         ];
 
-        // Периодические колонки (например, Год, Месяц)
         const periodsColumns = this.#buildPeriodColumns(0);
 
         const limitCellClass = params => {
@@ -379,8 +379,8 @@ export class GridManager {
                 headerName: 'Источник',
                 // cellRenderer: 'agGroupCellRenderer',
             },
-            onGridSizeChanged: params => this.#fitColumns(params),
-            onFirstDataRendered: params => this.#fitColumns(params),
+            onGridSizeChanged: params => this.#fitColumns(),
+            onFirstDataRendered: params => this.#fitColumns(),
             getContextMenuItems: ({ defaultItems, column }) => {
                 const newDefaultItems = defaultItems?.filter(i =>
                     !['cut', 'copyWithHeaders', 'copyWithGroupHeaders', 'paste'].includes(i)
@@ -471,9 +471,9 @@ export class GridManager {
     }
 
     #getCellClassByStatus(data) {
-        if (!data || data.state !== 'Активен' || data.project_state === null) return '';
-        return data.project_state === 0 ? 'project-limited-completely'
-            : data.project_state > 0 ? 'project-limited' : '';
+        if (!data || data.send_status === null) return '';
+        return data.send_status === 0 ? 'project-limited-completely'
+            : data.send_status > 0 ? 'project-limited' : '';
     }
 
     #buildPeriodColumns(periodDataIndex, periodName = '', visibleColumns = ['processed', 'leads', 'missed', 'declined']) {
@@ -539,6 +539,7 @@ export class GridManager {
                     periodId: periodDataIndex
                 },
                 valueGetter: periodValueGetter,
+                suppressColumnsToolPanel: true,
             };
             if (cellRenderer) colDef.cellRenderer = cellRenderer;
             if (cellClass) colDef.cellClass = cellClass;
@@ -679,8 +680,8 @@ export class GridManager {
         return colDef;
     }
 
-    #fitColumns(params) {
-        params.api.sizeColumnsToFit();
+    #fitColumns() {
+        this.gridApi.sizeColumnsToFit();
     }
 
     #filter(node) {
@@ -785,6 +786,8 @@ export class GridManager {
                 applyOrder: false,
             });
         }
+
+        this.#fitColumns();
 
         return this.sourcesGrouping;
     }
