@@ -672,7 +672,7 @@ export class GridManager {
             return `${value} <span class="percent">${percentStr}%</span>`;
         };
 
-        const getColumnNameByField = (field) => {
+        const getColumnName = (field) => {
             switch (field) {
                 case 'processed':
                     return 'Номера';
@@ -707,14 +707,28 @@ export class GridManager {
                     return field;
             }
         };
+        const getColumnTooltip = (field, periodName) => {
+            switch (field) {
+                case 'processed':
+                    return `Всего номеров за ${periodName}.`;
+                case 'leads':
+                    return `Лиды за ${periodName}.\nКолонка является суммой статусов:\n- Переговоры\n- Ожидаем оплаты\n- Партнёрка\n- Оплачено\n- Тест драйв\n- Горячий`;
+                case 'missed':
+                    return `Недозвоны за ${periodName}.\nКолонка является суммой статусов:\n- Недозвон\n- Конечный недозвон`;
+                case 'declined':
+                    return `Отказы за ${periodName}.\nКолонка является суммой статусов:\n- Закрыто и не реализовано\n- На замену`;
+                default:
+                    return field;
+            }
+        };
 
         const columns = [];
         for (const columnField of visibleColumns) {
-            const columnName = getColumnNameByField(columnField);
+            const columnName = getColumnName(columnField);
             const column = createPeriodColumn(
                 `${columnName}${periodName ? ` ${periodName}` : ''}`,
                 columnField,
-                `Количество '${columnName}' за ${periodName} период`,
+                getColumnTooltip(columnField, periodName),
                 params => cellRender(params, columnField !== 'processed'),
                 columnField + "-cell",
             );
