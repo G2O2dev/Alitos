@@ -4,7 +4,6 @@ import {
     formatPercentage,
     normalizePhoneNumber,
     range,
-    toLocalISOString
 } from "./helpers.js";
 import {AG_GRID_LOCALE_RU} from "../../lib/ag-grid-ru.js";
 import crmApi from "../client/crm-api.js";
@@ -22,7 +21,7 @@ export class GridManager {
     sourcesGrouping = false;
 
     constructor(config) {
-        const { selector, periods } = config;
+        const {selector, periods} = config;
         this.gridElement = document.querySelector(selector);
 
         this.gridOptions = this.#buildGridOptions(periods);
@@ -34,6 +33,7 @@ export class GridManager {
     get deletedShown() {
         return this._deletedShown;
     }
+
     set deletedShown(value) {
         this._deletedShown = value;
         this.gridApi?.onFilterChanged();
@@ -42,6 +42,7 @@ export class GridManager {
     get rows() {
         return this._rows;
     }
+
     set rows(values) {
         this._rows.clear();
         values.forEach(row => this._rows.set(row.id, row));
@@ -55,7 +56,7 @@ export class GridManager {
             accentColor: 'var(--color-accent)',
             backgroundColor: 'var(--color-bg)',
             browserColorScheme: 'dark',
-            chromeBackgroundColor: { ref: 'foregroundColor', mix: 0.07, onto: 'backgroundColor' },
+            chromeBackgroundColor: {ref: 'foregroundColor', mix: 0.07, onto: 'backgroundColor'},
             columnHoverColor: 'var(--color-gray-200)',
             foregroundColor: 'var(--color-text-primary)',
             headerBackgroundColor: 'var(--color-gray-100)',
@@ -67,9 +68,14 @@ export class GridManager {
             headerVerticalPaddingScale: 0.8,
             wrapperBorder: true,
             wrapperBorderRadius: 10,
-            rowBorder: { style: 'solid', width: 1, color: 'var(--color-gray-300)' },
-            columnBorder: { style: 'solid', width: 1, color: 'var(--color-gray-300)' },
+            rowBorder: {style: 'solid', width: 1, color: 'var(--color-gray-300)'},
+            columnBorder: {style: 'solid', width: 1, color: 'var(--color-gray-300)'},
         });
+
+        const autoNameRenderer = (params) => {
+            if (params.data)
+                return `${params.data.name}<span class="autoname_tag">${params.data.tag ? ` (${params.data.tag})` : ''}</span><span class="autoname_operator">${params.data.operator}</span>`;
+        };
 
         let basicColumns = [
             {
@@ -89,19 +95,46 @@ export class GridManager {
                 minWidth: 44,
                 maxWidth: 44,
                 resizable: false,
-                filterParams: { suppressMiniFilter: true },
+                filterParams: {suppressMiniFilter: true},
                 headerTooltip: 'Оператор.\nB1 - Ростелеком\nB2 - Билайн\nB3 - МТС\nB4 - Мегафон',
+                hide: true,
+                suppressColumnsToolPanel: true,
             },
-            { headerName: 'Автоназвание', field: 'autoName', minWidth: 120, filter: false, aggFunc: "same", headerTooltip: 'Автоназвание компилирует название и тег в формате: Название (Тег)', },
-            { headerName: 'Название', field: 'name', minWidth: 120, filter: false, aggFunc: "name", hide: true },
-            { headerName: 'Тег', field: 'tag', minWidth: 70, filter: false, resizable: true, aggFunc: "same", hide: true },
+            {
+                headerName: 'Автоназвание',
+                field: 'autoName',
+                minWidth: 120,
+                filter: false,
+                aggFunc: "same",
+                headerTooltip: 'Автоназвание компилирует название и тег в формате: Название (Тег)',
+                cellRenderer: autoNameRenderer,
+            },
+            {
+                headerName: 'Название',
+                field: 'name',
+                minWidth: 120,
+                filter: false,
+                aggFunc: "name",
+                hide: true,
+                suppressColumnsToolPanel: true,
+            },
+            {
+                headerName: 'Тег',
+                field: 'tag',
+                minWidth: 70,
+                filter: false,
+                resizable: true,
+                aggFunc: "same",
+                hide: true,
+                suppressColumnsToolPanel: true,
+            },
             {
                 headerName: 'Статус',
                 field: 'state',
                 minWidth: 120,
                 maxWidth: 120,
                 resizable: false,
-                filterParams: { suppressMiniFilter: true },
+                filterParams: {suppressMiniFilter: true},
                 aggFunc: "activeInactive",
                 cellClass: info => this.#getCellClassByStatus(info.data),
                 headerTooltip: 'Текущий статус проекта. Если ячейка:\nЖёлтая — при последней отправке лимит проекта был снижен системой из-за нехватки баланса.\nКрасная — проект не был отправлен из-за нехватки баланса.',
@@ -114,7 +147,7 @@ export class GridManager {
                 resizable: false,
                 cellRenderer: params => this.#projectTypeRenderer(params),
                 headerTooltip: 'Тип проекта и количество источников',
-                filterParams: { suppressMiniFilter: true },
+                filterParams: {suppressMiniFilter: true},
                 aggFunc: "same",
             },
         ];
@@ -155,7 +188,7 @@ export class GridManager {
                 maxWidth: 180,
                 resizable: false,
                 filter: 'agTextColumnFilter',
-                filterParams: { defaultOption: 'contains' },
+                filterParams: {defaultOption: 'contains'},
                 headerTooltip: 'В какие дни работает проект',
                 hide: true,
                 aggFunc: "same",
@@ -168,7 +201,7 @@ export class GridManager {
                 maxWidth: 180,
                 resizable: false,
                 filter: 'agTextColumnFilter',
-                filterParams: { defaultOption: 'contains' },
+                filterParams: {defaultOption: 'contains'},
                 headerTooltip: 'Ограничение по регионам, отображается в виде кода региона. Если ячейка:\nЗелёная — Номера будут поступать только из этого региона.\nКрасная — Номера будут поступать из всех регионов кроме указанного.',
                 hide: true,
                 aggFunc: "same",
@@ -210,8 +243,8 @@ export class GridManager {
                 valueFormatter: p => dateFormatter(p),
                 aggFunc: "sameDate",
             },
-            this.#createNumberColumn('Дублей всего', 'duplicate_count', { defaultOption: 'greaterThan' }, null, null, null, true),
-            this.#createNumberColumn('Дублей сегодня', 'today_duplicate_count', { defaultOption: 'greaterThan' }, null, null, null, true),
+            this.#createNumberColumn('Дублей всего', 'duplicate_count', {defaultOption: 'greaterThan'}, null, null, null, true),
+            this.#createNumberColumn('Дублей сегодня', 'today_duplicate_count', {defaultOption: 'greaterThan'}, null, null, null, true),
 
             {
                 headerName: 'Источник',
@@ -290,7 +323,6 @@ export class GridManager {
             rowData: null,
             suppressAggFuncInHeader: true,
 
-
             isExternalFilterPresent: () => true,
             doesExternalFilterPass: node => this.#filter(node),
             getRowId: params => typeof params.data === 'string' ? params.data : params.data.id,
@@ -301,7 +333,7 @@ export class GridManager {
             defaultColDef: {
                 flex: 1,
                 filter: true,
-                filterParams: { closeOnApply: true, suppressSelectAll: true },
+                filterParams: {closeOnApply: true, suppressSelectAll: true},
                 suppressHeaderMenuButton: true,
             },
             aggFuncs: {
@@ -428,12 +460,11 @@ export class GridManager {
                 maxWidth: 320,
                 headerName: 'Источник',
 
-
                 // cellRenderer: 'agGroupCellRenderer',
             },
             onGridSizeChanged: params => this.#fitColumns(),
             onFirstDataRendered: params => this.#fitColumns(),
-            getContextMenuItems: ({ defaultItems, column }) => {
+            getContextMenuItems: ({defaultItems, column}) => {
                 const newDefaultItems = defaultItems?.filter(i =>
                     !['cut', 'copyWithHeaders', 'copyWithGroupHeaders', 'paste'].includes(i)
                 );
@@ -471,7 +502,7 @@ export class GridManager {
                 }
                 return [...newDefaultItems, ...newItems];
             },
-            getMainMenuItems: ({ defaultItems }) => {
+            getMainMenuItems: ({defaultItems}) => {
                 const filtered = defaultItems?.filter(i => !['pinSubMenu', 'autoSizeThis', 'autoSizeAll', 'resetColumns'].includes(i));
 
                 filtered.push({
@@ -481,7 +512,7 @@ export class GridManager {
 
                 return filtered;
             },
-            onColumnVisible: ({ api }) => api.sizeColumnsToFit(),
+            onColumnVisible: ({api}) => api.sizeColumnsToFit(),
             sendToClipboard: this.#sendSelectedToClipboard,
             onFilterChanged: () => this.#refreshAggregated(),
         };
@@ -506,8 +537,8 @@ export class GridManager {
                     const toRemove = this.getSelectedRows().map(row => row.data.id);
                     this.gridApi.clearCellSelection();
                     this.gridApi.clearFocusedCell();
-                    this.gridApi.applyTransaction({ remove: toRemove });
-                    this.gridApi.refreshCells({ force: true });
+                    this.gridApi.applyTransaction({remove: toRemove});
+                    this.gridApi.refreshCells({force: true});
                 }
             }
             if (e.ctrlKey && e.shiftKey && e.code === "KeyC") {
@@ -516,7 +547,7 @@ export class GridManager {
         });
     }
 
-    #projectTypeRenderer({ value, data }) {
+    #projectTypeRenderer({value, data}) {
         return data?.sources
             ? `${value} <span class="sources_count">${data.sources.length}</span>`
             : value;
@@ -524,8 +555,7 @@ export class GridManager {
 
     #getCellClassByStatus(data) {
         if (!data || data.send_status === null) return '';
-        return data.send_status === 0 ? 'project-limited-completely'
-            : data.send_status > 0 ? 'project-limited' : '';
+        return data.send_status === 0 ? 'project-limited-completely' : data.send_status > 0 ? 'project-limited' : '';
     }
 
     #buildPeriodColumns(periodDataIndex, periodName = '', visibleColumns = ['processed', 'leads', 'missed', 'declined']) {
@@ -609,7 +639,7 @@ export class GridManager {
             return fieldData.value !== undefined ? (this.isPercentSorting ? fieldData.percent : fieldData.value) : fieldData;
         }
         const cellRender = (params, showPercent = true) => {
-            const { field } = params.colDef;
+            const {field} = params.colDef;
             const periodId = params.colDef.context.periodId;
             let value, percent;
 
@@ -617,7 +647,7 @@ export class GridManager {
                 if (!showPercent) return params.value;
 
                 if (params.value && typeof params.value === 'object' && params.value.value !== undefined) {
-                    ({ value, percent } = params.value);
+                    ({value, percent} = params.value);
                 } else {
                     value = params.value;
 
@@ -704,7 +734,7 @@ export class GridManager {
             .getAllGridColumns()
             .filter(col => !col.visible)
             .map(col => {
-                const { field, headerName } = col.getColDef();
+                const {field, headerName} = col.getColDef();
                 if (!params.data) return null;
                 const value = params.data[field];
                 return value !== null ? `${headerName}: ${value}` : null;
@@ -737,7 +767,7 @@ export class GridManager {
     }
 
     #filter(node) {
-        const { data } = node;
+        const {data} = node;
 
         // Пропускаем удалённые элементы, если они не должны отображаться
         if (!this.deletedShown && data.delete_date !== null) return false;
@@ -757,11 +787,11 @@ export class GridManager {
                 const lowerCase = token.toLowerCase();
                 const isNumberSearch = [...lowerCase].filter(c => c >= '0' && c <= '9').length >= 2;
                 const normalizedNumber = normalizePhoneNumber(lowerCase);
-                return { token, lowerCase, isNumberSearch, normalizedNumber };
+                return {token, lowerCase, isNumberSearch, normalizedNumber};
             });
         }
 
-        for (const { lowerCase, isNumberSearch, normalizedNumber } of this._searchCache.tokens) {
+        for (const {lowerCase, isNumberSearch, normalizedNumber} of this._searchCache.tokens) {
             if (data.id.includes(lowerCase)) return true;
 
             if (isNumberSearch && findStringsWithPhone([data.tag, data.name], normalizedNumber).length > 0) {
@@ -801,20 +831,21 @@ export class GridManager {
     //#region Rows/Cells
     addRows(rows) {
         rows.forEach(row => this._rows.set(row.id, row));
-        this.gridApi?.applyTransaction({ add: rows });
+        this.gridApi?.applyTransaction({add: rows});
     }
+
     forEachNode(callback) {
         this.gridApi.forEachNode(callback);
     }
 
     refreshCells() {
-        this.gridApi.refreshCells({ force: true });
+        this.gridApi.refreshCells({force: true});
     }
 
     getSelectedRows() {
         const cellRanges = this.gridApi.getCellRanges();
         if (!cellRanges || !cellRanges[0]) return [];
-        const { startRow, endRow } = cellRanges[0];
+        const {startRow, endRow} = cellRanges[0];
         const selected = [];
         range(startRow.rowIndex, endRow.rowIndex).forEach(i => {
             const row = this.gridApi.getDisplayedRowAtIndex(i);
@@ -822,6 +853,7 @@ export class GridManager {
         });
         return selected;
     }
+
     //#endregion Rows/Cell API
 
     //#region Public
@@ -833,7 +865,7 @@ export class GridManager {
         if (!this.sourcesGrouping) {
             this.gridApi.applyColumnState({
                 state: [
-                    { colId: 'sources', hide: true }
+                    {colId: 'sources', hide: true}
                 ],
                 applyOrder: false,
             });
@@ -843,6 +875,7 @@ export class GridManager {
 
         return this.sourcesGrouping;
     }
+
     togglePercentSort() {
         this.isPercentSorting = !this.isPercentSorting;
         this.gridApi.refreshClientSideRowModel('sort');
@@ -853,6 +886,7 @@ export class GridManager {
         this.searchValue = searchValue;
         this.gridApi.onFilterChanged();
     }
+
     copySourcesOfSelected() {
         const toCopy = this.getSelectedRows().map(row => row.data.sources);
         navigator.clipboard.writeText(toCopy.toString());
@@ -873,5 +907,6 @@ export class GridManager {
             ]
         });
     }
+
     //#endregion
 }

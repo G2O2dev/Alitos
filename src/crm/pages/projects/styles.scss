@@ -37,6 +37,13 @@
   display: none;
 }
 
+.ag-header-cell .ag-header-cell-filter-button {
+  display: none;
+}
+.ag-header-cell:hover .ag-header-cell-filter-button, .ag-column-menu-visible .ag-header-cell-filter-button, .ag-header-cell-filtered .ag-header-cell-filter-button {
+  display: block;
+}
+
 .ag-tooltip {
   max-width: 400px;
   white-space: pre-line;
@@ -52,6 +59,15 @@
   position: absolute;
   left: 85px;
   color: var(--color-text-tertiary);
+}
+
+.autoname_operator {
+  position: absolute;
+  left: calc(100% - 30px);
+  color: var(--color-text-tertiary);
+}
+.autoname_tag {
+  color: var(--color-text-secondary);
 }
 
 .sources_count {

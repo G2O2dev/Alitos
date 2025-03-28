@@ -106,9 +106,12 @@ function parseAnalytic(analyticHtml) {
     return analytic.map(project => {
         const callCounts = countCalls(project);
         const deleted = project.deleted_at !== null;
-        let autoName = (project.name ? project.name : project.tag) + (project.name && project.tag ? ' (' + project.tag + ')' : '');
-        if (autoName[0] === 'B' && autoName[2] === '_')
-            autoName = autoName.substring(3, autoName.length);
+        const encryptedOp = encryptOperator(project.src);
+
+        let cleanName = project.name;
+        if (cleanName && cleanName[0] === 'B' && cleanName[2] === '_')
+            cleanName = cleanName.substring(3, cleanName.length);
+        let autoName = (cleanName ? cleanName : project.tag) + (project.name && project.tag ? ' (' + project.tag + ')' : '');
 
         return {
             id: project.id,
@@ -117,7 +120,7 @@ function parseAnalytic(analyticHtml) {
             autoName: autoName,
             state: deleted ? "Удалён" : project.status === 1 ? "Активен" : "Неактивен",
             project_type: assocType(project.type),
-            operator: encryptOperator(project.src),
+            operator: encryptedOp,
             limit: Number(project.lim),
             workdays: project.workdays,
             region_limit: project.regions,
