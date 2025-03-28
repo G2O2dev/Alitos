@@ -191,13 +191,13 @@ async function getWantedNumbersAdvice() {
 
     if (workDaysCount < 3 || avgPhones <= 5)
         return;
-    const percentDiff = percentageDifference(avgPhones, config.wantPhones);
+    const percentDiff = percentageDifference(config.wantPhones, avgPhones);
 
     if (percentDiff >= 20) {
         const suggested = Math.round(config.wantPhones * ((percentDiff + 100) / 100));
 
         advice.title = 'Увеличение желаемого кол-ва номеров';
-        advice.description = `В среднем приходит по ${pluralize(avgPhones, "номер", "", "а", "ов")} в день, что на ~${Math.round(percentDiff)}% больше желаемого количества - ${config.wantPhones}. Предлагаю отключить/ограничить проекты что бы уложиться желаемое количество номеров или увеличить его до ${pluralize(suggested, "номер", "а", "а", "ов")}.`;
+        advice.description = `В среднем приходит по ${pluralize(avgPhones, "номер", "", "а", "ов")} в день, что на ~${Math.round(percentDiff)}% больше желаемого количества: ${config.wantPhones}. Предлагаю отключить/ограничить проекты что бы уложиться желаемое количество номеров или увеличить его до ${pluralize(suggested, "номер", "а", "а", "ов")}.`;
 
         advice.actions.push({
             name: `Установить ${suggested}`,
@@ -212,7 +212,7 @@ async function getWantedNumbersAdvice() {
         const suggested = Math.round(config.wantPhones * ((percentDiff + 100) / 100));
 
         advice.title = 'Проведение досбора';
-        advice.description = `В среднем приходит по ${pluralize(avgPhones, "номер", "", "а", "ов")} в день, что на ~${Math.abs(Math.round(percentDiff))}% меньше желаемого количества - ${config.wantPhones}. Предлагаю принять меры по увеличению количества номеров (досбор, увелечения лимитов и тд.) или уменьшить желаемое количество до ${pluralize(suggested, "номер", "а", "а", "ов")}.`;
+        advice.description = `В среднем приходит по ${pluralize(avgPhones, "номер", "", "а", "ов")} в день, что на ~${Math.abs(Math.round(percentDiff))}% меньше желаемого количества: ${config.wantPhones}. Предлагаю принять меры по увеличению количества номеров (досбор, увелечения лимитов и тд.) или уменьшить желаемое количество до ${pluralize(suggested, "номер", "а", "а", "ов")}.`;
 
         return advice;
     }
