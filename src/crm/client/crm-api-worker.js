@@ -1,3 +1,19 @@
+function replaceDomainsWithLinks(text, blankTarget = false) {
+    const regex = /(https?:\/\/[\p{L}\p{N}.-]+\.[\p{L}]{2,}(?:\/\S*)?)|((?<!https?:\/\/)(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+[\p{L}]{2,}(?:\/\S*)?)/gu;
+
+    return text.replace(regex, (match, group1, group2) => {
+        let url;
+        if (group1) {
+            url = group1;
+        } else if (group2) {
+            url = 'http://' + group2;
+        } else {
+            url = match;
+        }
+        return `<a href="${url}" ${blankTarget ? 'target="_blank"' : ''}>${match}</a>`;
+    });
+}
+
 function parseSources(content) {
     return content.replace(/"/g, "").split(",").map(s => s.trim());
 }
@@ -94,6 +110,40 @@ function encryptOperator(operator) {
     }
 }
 
+function processNameAndTag(name, tag) {
+    let cleanName = name;
+    if (cleanName && cleanName[0] === 'B' && cleanName[2] === '_') {
+        cleanName = cleanName.substring(3);
+    }
+    const lowName = cleanName.toLowerCase();
+    const lowTag = (tag || '').toLowerCase();
+    if (lowTag && lowName.includes(lowTag)) {
+        tag = '';
+    } else if (lowTag.includes(lowName)) {
+        cleanName = tag;
+        tag = '';
+    }
+
+    const domains = extractDomainsFromNameAndTag(cleanName, tag);
+
+    return {
+        name: replaceDomainsWithLinks(cleanName, true),
+        tag: replaceDomainsWithLinks(tag, true),
+        domains
+    };
+}
+function extractDomainsFromNameAndTag(name, tag) {
+    const regex = /https?:\/\/([\p{L}\p{N}.-]+\.\p{L}{2,})|(?<!https?:\/\/)((?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+[\p{L}]{2,})/gu;
+    const domains = new Set();
+    [name, tag].forEach(str => {
+        let match;
+        while ((match = regex.exec(str || '')) !== null) {
+            domains.add(match[1] || match[2]);
+        }
+    });
+    return Array.from(domains);
+}
+
 function parseAnalytic(analyticHtml) {
     const match = analyticHtml.match(/projects:\s*(\[[\s\S]*?\])/);
     if (!match) {
@@ -108,16 +158,15 @@ function parseAnalytic(analyticHtml) {
         const deleted = project.deleted_at !== null;
         const encryptedOp = encryptOperator(project.src);
 
-        let cleanName = project.name;
-        if (cleanName && cleanName[0] === 'B' && cleanName[2] === '_')
-            cleanName = cleanName.substring(3, cleanName.length);
-        let autoName = (cleanName ? cleanName : project.tag) + (project.name && project.tag ? ' (' + project.tag + ')' : '');
+        const smartNameParts = processNameAndTag(project.name, project.tag);
 
         return {
             id: project.id,
             tag: project.tag,
             name: project.name,
-            autoName: autoName,
+
+            smartName: smartNameParts,
+
             state: deleted ? "Удалён" : project.status === 1 ? "Активен" : "Неактивен",
             project_type: assocType(project.type),
             operator: encryptedOp,
@@ -134,7 +183,11 @@ function parseAnalytic(analyticHtml) {
 }
 
 self.onmessage = function(e) {
-    const { analyticHtml } = e.data;
+    const { key, analyticHtml } = e.data;
     const result = parseAnalytic(analyticHtml);
-    self.postMessage(result);
+    self.postMessage({
+        type: 'analyticsResponse',
+        key: key,
+        data: result,
+    });
 };

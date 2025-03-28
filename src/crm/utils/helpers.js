@@ -79,3 +79,19 @@ export function toLocalISOString(date) {
     const userTimezoneOffset = date.getTimezoneOffset() * 60000;
     return new Date(date.getTime() - userTimezoneOffset).toISOString();
 }
+
+export function replaceDomainsWithLinks(text, blankTarget = false) {
+    const regex = /(https?:\/\/[\p{L}\p{N}.-]+\.[\p{L}]{2,}(?:\/\S*)?)|((?<!https?:\/\/)(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+[\p{L}]{2,}(?:\/\S*)?)/gu;
+
+    return text.replace(regex, (match, group1, group2) => {
+        let url;
+        if (group1) {
+            url = group1;
+        } else if (group2) {
+            url = 'http://' + group2;
+        } else {
+            url = match;
+        }
+        return `<a href="${url}" ${blankTarget ? 'target="_blank"' : ''}>${match}</a>`;
+    });
+}

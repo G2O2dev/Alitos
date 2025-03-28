@@ -3,6 +3,7 @@ import session from "./session.js";
 
 class CrmApi {
     #clientInfo;
+    #worker = new Worker(chrome.runtime.getURL('src/crm/client/crm-api-worker.js'));
 
     async fetch(url, params) {
         return await chrome.runtime.sendMessage({action: "fetch", url, params});
@@ -64,18 +65,16 @@ class CrmApi {
 
         this.#clientInfo = this.#parseClient(html);
 
-        const workerUrl = chrome.runtime.getURL('src/crm/client/crm-api-worker.js');
-        const worker = new Worker(workerUrl);
         return new Promise((resolve, reject) => {
-            worker.onmessage = function(e) {
-                resolve(e.data);
-                worker.terminate();
+            this.#worker.onmessage = function(e) {
+                if (e.data.type === 'analyticsResponse' && e.data.key === sliceName) {
+                    resolve(e.data.data);
+                }
             };
-            worker.onerror = function(error) {
+            this.#worker.onerror = function(error) {
                 reject(error);
-                worker.terminate();
             };
-            worker.postMessage({ analyticHtml: html });
+            this.#worker.postMessage({ key: sliceName, analyticHtml: html });
         });
     }
 

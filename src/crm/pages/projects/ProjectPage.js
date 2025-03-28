@@ -128,7 +128,7 @@ export class ProjectPage extends Page {
 
         const period = this.#periods[index];
         const analytic = await session.getAnalytic(period.from, period.to, false);
-        await this.#applyAnalyticToGridRows(analytic, index);
+        await this.#applyAnalyticToRows(analytic, index);
     }
     #addPeriod(from, to) {
 
@@ -145,7 +145,7 @@ export class ProjectPage extends Page {
         ];
     }
 
-    #applyAnalyticToGridRows(analytic, periodIndex) {
+    #applyAnalyticToRows(analytic, periodIndex) {
         const newRows = [];
         analytic.forEach(project => {
             const existingRow = this.gridManager.rows.get(project.id);
@@ -161,7 +161,7 @@ export class ProjectPage extends Page {
         if (this.gridManager.rows.size !== newRowsLen)
             this.gridManager.refreshCells();
     }
-    #applyProjectInfoToGridRows(projectsInfo) {
+    #applyProjectInfoToRows(projectsInfo) {
         for (const project of projectsInfo) {
             if (this.gridManager.rows.has(project.id)) {
                 const rowData = this.gridManager.rows.get(project.id);
@@ -231,11 +231,11 @@ export class ProjectPage extends Page {
         for (let i = 0; i < this.#periods.length; i++) {
             const period = this.#periods[i];
             const analytic = await session.getAnalytic(period.from, period.to, deleted);
-            this.#applyAnalyticToGridRows(analytic, i);
+            this.#applyAnalyticToRows(analytic, i);
         }
 
         const projectInfo = await session.getProjects(deleted);
-        this.#applyProjectInfoToGridRows(projectInfo);
+        this.#applyProjectInfoToRows(projectInfo);
 
         await this.#loadLimitRate(deleted);
 

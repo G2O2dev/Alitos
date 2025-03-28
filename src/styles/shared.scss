@@ -37,6 +37,7 @@
   --color-text-goldy: hsl(60, 100%, 30%);
   --color-text-green: hsl(118, 100%, 30%);
   --color-text-blue: hsl(211, 100%, 30%);
+  --color-text-blue-light: hsl(211, 25%, 30%);
 }
 
 :root.dark {
@@ -69,6 +70,7 @@
   --color-text-goldy: hsl(60, 40%, 80%);
   --color-text-green: hsl(118, 40%, 80%);
   --color-text-blue: hsl(211, 40%, 80%);
+  --color-text-blue-light: hsl(211, 25%, 80%);
 }
 
 @font-face {

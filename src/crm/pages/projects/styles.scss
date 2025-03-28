@@ -49,6 +49,15 @@
   white-space: pre-line;
 }
 
+.ag-header-btn {
+  &:hover {
+    background-color: var(--ag-icon-button-hover-background-color);
+    box-shadow: 0 0 0 var(--ag-icon-button-background-spread) var(--ag-icon-button-hover-background-color);
+    color: var(--ag-icon-button-hover-color);
+    border-radius: var(--ag-icon-button-border-radius);
+  }
+}
+
 .percent {
   position: absolute;
   left: 65px;
@@ -61,13 +70,28 @@
   color: var(--color-text-tertiary);
 }
 
-.autoname_operator {
+.smartname_cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  max-width: calc(100% - 22px);
+}
+
+.smartname_operator {
   position: absolute;
   left: calc(100% - 30px);
   color: var(--color-text-tertiary);
 }
-.autoname_tag {
+.smartname_tag {
   color: var(--color-text-secondary);
+}
+.smartname_name a, .smartname_tag a {
+  color: var(--color-text-blue-light);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 .sources_count {

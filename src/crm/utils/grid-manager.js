@@ -2,11 +2,49 @@ import {
     calcPercent,
     findStringsWithPhone,
     formatPercentage,
-    normalizePhoneNumber,
-    range,
+    normalizePhoneNumber, pluralize,
+    range, replaceDomainsWithLinks,
 } from "./helpers.js";
 import {AG_GRID_LOCALE_RU} from "../../lib/ag-grid-ru.js";
 import crmApi from "../client/crm-api.js";
+
+class CustomHeaderWithExpandAll {
+    expanded = false;
+
+    init(params) {
+        this.params = params;
+        this.eGui = document.createElement('div');
+        this.eGui.innerHTML = `
+            <span class="ag-header-cell-text">${params.displayName}</span>
+            <span data-ref="eFilterButton" class="ag-header-btn ag-header-icon" aria-hidden="true">
+                <span class="ag-icon ag-icon-tree-closed" unselectable="on" role="presentation"></span>
+            </span>
+        `;
+        this.eGui.classList.add('ag-cell-label-container');
+        this.eGui.classList.add('ag-header-cell-sorted-none');
+        this.eGui.style.gap = '9px';
+        this.eGui.style.cursor = 'pointer';
+        this.eGui.style.justifyContent = 'flex-end';
+
+        const button = this.eGui.querySelector('.ag-header-btn');
+        const buttonIcon = button.querySelector('.ag-icon');
+        button.addEventListener('click', () => {
+            if (buttonIcon.classList.contains('ag-icon-tree-open')) {
+                buttonIcon.classList.remove('ag-icon-tree-open');
+                buttonIcon.classList.add('ag-icon-tree-closed');
+                this.params.api.collapseAll();
+            } else {
+                buttonIcon.classList.remove('ag-icon-tree-closed');
+                buttonIcon.classList.add('ag-icon-tree-open');
+                this.params.api.expandAll();
+            }
+        });
+    }
+
+    getGui() {
+        return this.eGui;
+    }
+}
 
 export class GridManager {
     _deletedShown = false;
@@ -72,9 +110,47 @@ export class GridManager {
             columnBorder: {style: 'solid', width: 1, color: 'var(--color-gray-300)'},
         });
 
-        const autoNameRenderer = (params) => {
-            if (params.data)
-                return `${params.data.name}<span class="autoname_tag">${params.data.tag ? ` (${params.data.tag})` : ''}</span><span class="autoname_operator">${params.data.operator}</span>`;
+        const cache = new WeakMap();
+
+        const getFromCache = (node) => cache.get(node) || null;
+        const setToCache = (node, value) => cache.set(node, value);
+
+        const smartNameRenderer = (params) => {
+            if (params.data) {
+                return createCellHtml(params.data.smartName.name, params.data.smartName.tag, params.data.operator);
+            }
+            if (params.node.footer) return;
+
+            const cached = getFromCache(params.node);
+            if (cached) return cached;
+
+            const childValues = params.node.allLeafChildren.map(child =>
+                createCellHtml(child.data?.smartName.name, child.data?.smartName.tag)
+            );
+            if (allEqual(childValues)) {
+                setToCache(params.node, childValues[0]);
+                return childValues[0];
+            }
+            const result = handleMixedValues(params.node.allLeafChildren);
+            setToCache(params.node, result);
+            return result;
+        };
+
+        const createCellHtml = (name, tag, operator = '') => {
+            return `<span class="smartname_cell">
+                <span class="smartname_name">${name}</span>
+                ${tag ? `<span class="smartname_tag"> (${tag})</span>` : ''}
+                ${operator ? `<span class="smartname_operator">${operator}</span>` : ''}
+            </span>`;
+        };
+
+        const allEqual = (arr) => arr.every(val => val === arr[0]);
+
+        const handleMixedValues = (childNodes) => {
+            const allDomains = childNodes.flatMap(child => child.data.smartName.domains || []);
+            const uniqueDomains = [...new Set(allDomains)];
+            const displayed = uniqueDomains.slice(0, 5).join(', ');
+            return createCellHtml(replaceDomainsWithLinks(displayed, true));
         };
 
         let basicColumns = [
@@ -101,13 +177,13 @@ export class GridManager {
                 suppressColumnsToolPanel: true,
             },
             {
-                headerName: 'Автоназвание',
-                field: 'autoName',
+                headerName: 'Умное имя',
+                field: 'smartName',
                 minWidth: 120,
                 filter: false,
-                aggFunc: "same",
-                headerTooltip: 'Автоназвание компилирует название и тег в формате: Название (Тег)',
-                cellRenderer: autoNameRenderer,
+                headerTooltip: 'Умное имя имеет ряд улучшений над названием и тегом:\n- Компилирует название и тег в формате: Название (Тег).\n- В конце ячейки отображается реальный оператор.\n- При клике на домен, он будет открыт\n- Если тег повторяет название он не будет отображён.',
+                cellRenderer: smartNameRenderer,
+                suppressColumnsToolPanel: true,
             },
             {
                 headerName: 'Название',
@@ -460,6 +536,7 @@ export class GridManager {
                 maxWidth: 320,
                 headerName: 'Источник',
 
+                headerComponent: CustomHeaderWithExpandAll
                 // cellRenderer: 'agGroupCellRenderer',
             },
             onGridSizeChanged: params => this.#fitColumns(),
@@ -491,15 +568,28 @@ export class GridManager {
                             crmApi.enableProjects(toRemove);
                         },
                     };
-                    const copyContentItem = {
-                        name: 'Копировать источники',
-                        action: () => this.copySourcesOfSelected(),
-                    };
                     newItems.push(enableItem);
                     newItems.push(disableItem);
                     newItems.push(deleteItem);
-                    newItems.push(copyContentItem);
                 }
+                newItems.push({
+                    name: 'Копировать источники',
+                    action: () => this.copySourcesOfSelected(),
+                });
+
+                const selectedCells = this.gridApi.getCellRanges()[0];
+                if (selectedCells) {
+                    const selected = this.getSelectedRows();
+                    newItems.push({
+                        name: `Скрыть ${pluralize(selected.length, 'проект', '', 'а', 'ов')}`,
+                        action: () => {
+                            this.gridApi.clearCellSelection();
+                            this.gridApi.clearFocusedCell();
+                            this.#hideCells(selected);
+                        },
+                    });
+                }
+
                 return [...newDefaultItems, ...newItems];
             },
             getMainMenuItems: ({defaultItems}) => {
@@ -537,14 +627,18 @@ export class GridManager {
                     const toRemove = this.getSelectedRows().map(row => row.data.id);
                     this.gridApi.clearCellSelection();
                     this.gridApi.clearFocusedCell();
-                    this.gridApi.applyTransaction({remove: toRemove});
-                    this.gridApi.refreshCells({force: true});
+                    this.#hideCells(toRemove);
                 }
             }
             if (e.ctrlKey && e.shiftKey && e.code === "KeyC") {
                 this.copySourcesOfSelected();
             }
         });
+    }
+
+    #hideCells(cells) {
+        this.gridApi.applyTransaction({remove: cells});
+        this.gridApi.refreshCells({force: true});
     }
 
     #projectTypeRenderer({value, data}) {
