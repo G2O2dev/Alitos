@@ -153,12 +153,10 @@
     }
   }
 
-  .datepicker__day {
-    &.range-start, &.range-end, &.selected {
-      &::after {
-        background: var(--color-gray-400);
-      }
-    }
+  &.range-start::after, &.range-end::after, &.selected::after, &.range-middle::after {
+    background: var(--color-gray-300) !important;
+
+    box-shadow: 0 0 5px 0 var(--color-bg);
   }
 
   &.today {
@@ -198,16 +196,6 @@
 
     &::after {
       display: none;
-    }
-  }
-}
-
-:root.dark {
-  .datepicker__day {
-    &.range-start::after,
-    &.range-end::after,
-    &.selected::after {
-      background: var(--color-gray-400);
     }
   }
 }

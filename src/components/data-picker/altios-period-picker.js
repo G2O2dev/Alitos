@@ -61,7 +61,7 @@ export class AlitosPeriodPicker {
     getWeek() {
         const today = new Date();
         const start = new Date(today);
-        start.setDate(today.getDate() - 7);
+        start.setDate(today.getDate() - 6);
         return { start, end: today };
     }
     getMonth() {

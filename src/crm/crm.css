@@ -487,8 +487,8 @@
   height: 26px;
   background-color: var(--color-gray-100);
 }
-.datepicker__day.range-start::after, .datepicker__day.range-end::after, .datepicker__day.selected::after {
-  background: var(--color-gray-300);
+.datepicker__day.range-start::after, .datepicker__day.range-end::after, .datepicker__day.selected::after, .datepicker__day.range-middle::after {
+  background: var(--color-gray-300) !important;
   box-shadow: 0 0 5px 0 var(--color-bg);
 }
 .datepicker__day.today {
@@ -807,6 +807,7 @@
   position: absolute;
   left: calc(100% - 30px);
   color: var(--color-text-tertiary);
+  user-select: none;
 }
 
 .smartname_tag {

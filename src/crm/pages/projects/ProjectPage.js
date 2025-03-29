@@ -138,7 +138,9 @@ export class ProjectPage extends Page {
         const now = new Date();
         const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
         const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-        const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+        now.setHours(0, 0, 0, 0);
+        weekAgo.setHours(0, 0, 0, 0);
 
         return [
             { from: weekAgo, to: now, name: "Неделя" }

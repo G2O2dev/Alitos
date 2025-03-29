@@ -4,6 +4,8 @@ import { AlitosPeriodPicker } from "../../../components/data-picker/altios-perio
 export class PeriodPickModal extends ModalWindow {
     #periodPicker;
     #callingElement;
+    #clonedElement;
+    #observer;
 
     constructor(config) {
         super({ contentClasses: ['period-pick-modal'] });
@@ -18,20 +20,27 @@ export class PeriodPickModal extends ModalWindow {
         this._boundUpdatePositions = this.updatePositions.bind(this);
     }
 
-    #clonedElement;
-
     show() {
         if (this.#callingElement) {
-            const rect = this.#callingElement.getBoundingClientRect();
-            const clone = this.#callingElement.cloneNode(true);
+            this.#clonedElement = this.#callingElement.cloneNode(true);
+            this.#positionCloned();
 
-            clone.style.position = 'absolute';
-            clone.style.top = `${rect.top + window.scrollY}px`;
-            clone.style.left = `${rect.left + window.scrollX}px`;
-            clone.style.pointerEvents = 'none';
+            this.modalContainer.appendChild(this.#clonedElement);
 
-            this.modalContainer.appendChild(clone);
-            this.#clonedElement = clone;
+            this.#observer = new MutationObserver(() => {
+                if (this.#callingElement && this.#clonedElement) {
+                    this.#clonedElement.remove();
+                    this.#clonedElement = this.#callingElement.cloneNode(true);
+                    this.#positionCloned();
+                    this.modalContainer.appendChild(this.#clonedElement);
+                }
+            });
+            this.#observer.observe(this.#callingElement, {
+                attributes: true,
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
 
             requestAnimationFrame(() => this.positionModal());
 
@@ -39,6 +48,15 @@ export class PeriodPickModal extends ModalWindow {
             window.addEventListener('resize', this._boundUpdatePositions);
         }
         super.open();
+    }
+
+    #positionCloned() {
+        const rect = this.#callingElement.getBoundingClientRect();
+
+        this.#clonedElement.style.position = 'absolute';
+        this.#clonedElement.style.top = `${rect.top + window.scrollY}px`;
+        this.#clonedElement.style.left = `${rect.left + window.scrollX}px`;
+        this.#clonedElement.style.pointerEvents = 'none';
     }
 
     positionModal() {
@@ -77,6 +95,11 @@ export class PeriodPickModal extends ModalWindow {
         super.close();
 
         this.onClosed = () => {
+            if (this.#observer) {
+                this.#observer.disconnect();
+                this.#observer = null;
+            }
+
             window.removeEventListener('scroll', this._boundUpdatePositions);
             window.removeEventListener('resize', this._boundUpdatePositions);
 
@@ -88,8 +111,8 @@ export class PeriodPickModal extends ModalWindow {
     }
 
     onRangeSelected(from, to) {
-        this.close();
         this.config.onRangeSelected(from, to);
+        this.close();
     }
 
     async render() {

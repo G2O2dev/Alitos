@@ -152,7 +152,7 @@
   z-index: 2;
   cursor: pointer;
 }
-.datepicker__day.range-start, .datepicker__day.in-range, .datepicker__day.range-end, .datepicker__day.range-end-selecting, .datepicker__day.range-start-selecting {
+.datepicker__day.range-start, .datepicker__day.in-range, .datepicker__day.range-end, .datepicker__day.range-middle, .datepicker__day.range-end-selecting, .datepicker__day.range-start-selecting {
   color: var(--color-text-primary);
 }
 .datepicker__day.range-start::before, .datepicker__day.in-range::before, .datepicker__day.range-end::before, .datepicker__day.range-end-selecting::before, .datepicker__day.range-start-selecting::before {

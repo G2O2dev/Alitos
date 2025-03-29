@@ -47,6 +47,10 @@
   display: block;
 }
 
+.ag-cell-range-single-cell .smartname_cell {
+  //user-select: text;
+}
+
 .ag-tooltip {
   max-width: 400px;
   white-space: pre-line;
@@ -84,6 +88,8 @@
   position: absolute;
   left: calc(100% - 30px);
   color: var(--color-text-tertiary);
+
+  user-select: none;
 }
 .smartname_tag {
   color: var(--color-text-secondary);

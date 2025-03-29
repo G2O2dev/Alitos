@@ -143,8 +143,10 @@ export class DatePicker {
     }
 
     changeMonth(offset) {
-        const newDate = new Date(this.currentDate);
-        newDate.setMonth(newDate.getMonth() + offset);
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth() + offset;
+
+        const newDate = new Date(year, month, 1);
 
         if (this.isMonthDisabled(newDate)) {
             return;
@@ -439,26 +441,38 @@ export class DatePicker {
 
     renderSelection(hoveredDate) {
         if (this.config.mode !== 'range' || !this.rangeStart) return;
+
         const days = this.root.querySelectorAll('.datepicker__day[data-current-month="true"]');
         const rangeEndDate = this.rangeEnd || hoveredDate;
-        const start = this.rangeStart < rangeEndDate ? this.rangeStart : rangeEndDate;
-        const end = rangeEndDate ? (this.rangeStart > rangeEndDate ? this.rangeStart : rangeEndDate) : null;
 
         if (this.prevRange) {
-            this.prevRange.forEach(day => day?.classList.remove('selected', 'range-start', 'range-end', 'in-range'));
+            this.prevRange.forEach(day =>
+                day?.classList.remove('selected', 'range-start', 'range-end', 'range-middle', 'in-range')
+            );
         }
 
-        if (!end) {
-            const startCell = this.root.querySelector(`.datepicker__day[data-timestamp="${this.rangeStart.getTime()}"][data-current-month="true"]`);
+        if (!rangeEndDate) {
+            const startCell = this.root.querySelector(
+                `.datepicker__day[data-timestamp="${this.rangeStart.getTime()}"][data-current-month="true"]`
+            );
             if (startCell) startCell.classList.add('selected');
             this.prevRange = [startCell];
             return;
         }
 
+        const start = this.rangeStart < rangeEndDate ? this.rangeStart : rangeEndDate;
+        const end = this.rangeStart > rangeEndDate ? this.rangeStart : rangeEndDate;
+
+        const isSameDay = start.getTime() === end.getTime();
+
         const newRange = [];
         days.forEach(day => {
             const dayTs = Number(day.getAttribute('data-timestamp'));
-            if (dayTs === start.getTime()) {
+
+            if (isSameDay && dayTs === start.getTime()) {
+                day.classList.add('range-middle');
+                newRange.push(day);
+            } else if (dayTs === start.getTime()) {
                 day.classList.add('range-start');
                 newRange.push(day);
             } else if (dayTs === end.getTime()) {
@@ -469,6 +483,7 @@ export class DatePicker {
                 newRange.push(day);
             }
         });
+
         this.prevRange = newRange;
     }
 }
