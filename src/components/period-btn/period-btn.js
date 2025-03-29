@@ -94,7 +94,7 @@ export class PeriodBtn {
             return "Месяц";
         }
         if (monthsDiff && monthsDiff < 12) {
-            return pluralize(monthsDiff, "Месяц", "а", "ев", "ев");
+            return pluralize(monthsDiff, "Месяц", "а", "а", "ев");
         }
         if (monthsDiff === 12) {
             return "Год";
