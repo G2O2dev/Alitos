@@ -636,6 +636,10 @@
   background-color: var(--color-gray-100);
 }
 
+.al-icon-tag:before {
+  mask-image: url("../assets/img/tag.svg");
+}
+
 :root {
   --corner-radius: 8px;
   --color-bg: hsl(0, 0%, 100%);

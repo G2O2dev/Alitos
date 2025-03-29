@@ -1,5 +1,5 @@
 import { Page } from '../Page.js';
-import { GridManager } from "../../utils/grid-manager.js";
+import { AnalyticGrid } from "./grid/AnalyticGrid.js";
 import { ToggleBtn } from "../../../components/toggle-btn/toggle-btn.js";
 import session from "../../client/session.js";
 import { SearchComponent } from "../../../components/search/search.js";
@@ -21,7 +21,7 @@ export class ProjectPage extends Page {
     constructor() {
         super('projects');
         this.#periods = this.#getDefaultPeriods();
-        this.gridManager = new GridManager({
+        this.gridManager = new AnalyticGrid({
             selector: "#grid",
             periods: this.#periods,
         });

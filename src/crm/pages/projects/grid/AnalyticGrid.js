@@ -4,49 +4,15 @@ import {
     formatPercentage,
     normalizePhoneNumber, pluralize,
     range, replaceDomainsWithLinks,
-} from "./helpers.js";
-import {AG_GRID_LOCALE_RU} from "../../lib/ag-grid-ru.js";
-import crmApi from "../client/crm-api.js";
+} from "../../../utils/helpers.js";
+import {AG_GRID_LOCALE_RU} from "../../../../lib/ag-grid-ru.js";
+import crmApi from "../../../client/crm-api.js";
+import {aggFuncs} from "./helpers/aggFuncs.js";
+import {dateFormatter, weekdaysFormatter} from "./helpers/formatters.js";
+import {ExpandAllHeader} from "./render/ExpandAllHeader.js";
+import {SmartnameToggleHeader} from "./render/SmartnameToggleHeader.js";
 
-class CustomHeaderWithExpandAll {
-    expanded = false;
-
-    init(params) {
-        this.params = params;
-        this.eGui = document.createElement('div');
-        this.eGui.innerHTML = `
-            <span class="ag-header-cell-text">${params.displayName}</span>
-            <span data-ref="eFilterButton" class="ag-header-btn ag-header-icon" aria-hidden="true">
-                <span class="ag-icon ag-icon-tree-closed" unselectable="on" role="presentation"></span>
-            </span>
-        `;
-        this.eGui.classList.add('ag-cell-label-container');
-        this.eGui.classList.add('ag-header-cell-sorted-none');
-        this.eGui.style.gap = '9px';
-        this.eGui.style.cursor = 'pointer';
-        this.eGui.style.justifyContent = 'flex-end';
-
-        const button = this.eGui.querySelector('.ag-header-btn');
-        const buttonIcon = button.querySelector('.ag-icon');
-        button.addEventListener('click', () => {
-            if (buttonIcon.classList.contains('ag-icon-tree-open')) {
-                buttonIcon.classList.remove('ag-icon-tree-open');
-                buttonIcon.classList.add('ag-icon-tree-closed');
-                this.params.api.collapseAll();
-            } else {
-                buttonIcon.classList.remove('ag-icon-tree-closed');
-                buttonIcon.classList.add('ag-icon-tree-open');
-                this.params.api.expandAll();
-            }
-        });
-    }
-
-    getGui() {
-        return this.eGui;
-    }
-}
-
-export class GridManager {
+export class AnalyticGrid {
     _deletedShown = false;
     _rows = new Map();
     _searchCache = {};
@@ -184,6 +150,8 @@ export class GridManager {
                 headerTooltip: 'Умное имя имеет ряд улучшений над названием и тегом:\n- Компилирует название и тег в формате: Название (Тег).\n- В конце ячейки отображается реальный оператор.\n- При клике на домен, он будет открыт\n- Если тег повторяет название он не будет отображён.',
                 cellRenderer: smartNameRenderer,
                 suppressColumnsToolPanel: true,
+
+                headerComponent: SmartnameToggleHeader,
             },
             {
                 headerName: 'Название',
@@ -203,6 +171,7 @@ export class GridManager {
                 aggFunc: "same",
                 hide: true,
                 suppressColumnsToolPanel: true,
+                headerComponent: SmartnameToggleHeader,
             },
             {
                 headerName: 'Статус',
@@ -331,55 +300,6 @@ export class GridManager {
             },
         ];
 
-        const dateFormatter = (params) => {
-            if (!params.value || typeof params.value.getMonth !== 'function') return "";
-            return params.value.toLocaleDateString("ru-RU", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "2-digit",
-            });
-        }
-        const weekdaysFormatter = (params) => {
-            if (!params.value) return "";
-
-            const daysMapping = {
-                '1': 'Пн',
-                '2': 'Вт',
-                '3': 'Ср',
-                '4': 'Чт',
-                '5': 'Пт',
-                '6': 'Сб',
-                '7': 'Вс'
-            };
-
-            const daysArr = Array.from(new Set(params.value.split('')))
-                .map(Number)
-                .sort((a, b) => a - b);
-
-            let ranges = [];
-            let start = daysArr[0];
-            let end = daysArr[0];
-
-            for (let i = 1; i < daysArr.length; i++) {
-                if (daysArr[i] === end + 1) {
-                    end = daysArr[i];
-                } else {
-                    ranges.push([start, end]);
-                    start = daysArr[i];
-                    end = daysArr[i];
-                }
-            }
-            ranges.push([start, end]);
-
-            return ranges.map(range => {
-                if (range[0] === range[1]) {
-                    return daysMapping[range[0].toString()] + '.';
-                } else {
-                    return daysMapping[range[0].toString()] + '-' + daysMapping[range[1].toString()];
-                }
-            }).join(' ');
-        }
-
         const afterPeriodsColumns = [
             this.#createNumberColumn('Лимит', 'limit', {
                 defaultOption: 'greaterThan',
@@ -412,131 +332,14 @@ export class GridManager {
                 filterParams: {closeOnApply: true, suppressSelectAll: true},
                 suppressHeaderMenuButton: true,
             },
-            aggFuncs: {
-                activeInactive: params => {
-                    let active = 0;
-                    let inactive = 0;
-                    let deleted = 0;
-
-                    const countChildLeaf = (rowNode) => {
-                        for (const child of rowNode.childrenAfterFilter) {
-                            if (child.childrenAfterFilter) {
-                                countChildLeaf(child);
-                            } else {
-                                switch (child.data.state) {
-                                    case "Активен":
-                                        active++;
-                                        break;
-                                    case "Неактивен":
-                                        inactive++;
-                                        break;
-                                    case "Удалён":
-                                        deleted++;
-                                        break;
-                                }
-                            }
-                        }
-                    }
-
-                    countChildLeaf(params.rowNode);
-
-                    return `${active} / ${inactive}${deleted ? ` / ${deleted}` : ''}`;
-                },
-                same: params => {
-                    let reference = params.values[0];
-                    for (let i = 1; i < params.values.length; i++) {
-                        const value = params.values[i];
-                        if (value === '')
-                            continue;
-
-                        if (reference === '') {
-                            reference = value;
-                            continue;
-                        }
-
-                        if (params.values[i] !== reference) {
-                            return null;
-                        }
-                    }
-
-                    return reference;
-                },
-                sameDate: params => {
-                    let refDate = null;
-                    for (const value of params.values) {
-                        if (!value) continue;
-
-                        const date = new Date(value);
-                        date.setHours(0, 0, 0, 0);
-
-                        if (!refDate) {
-                            refDate = date;
-                        } else if (date.getTime() !== refDate.getTime()) {
-                            return;
-                        }
-                    }
-
-                    return refDate;
-                },
-                period: params => {
-                    let sum = 0;
-                    const periodId = params.colDef.context.periodId;
-                    const field = params.colDef.field;
-
-                    const countChildLeaf = (rowNode) => {
-                        for (const child of rowNode.childrenAfterFilter) {
-                            if (child.data) {
-                                const periodData = child.data.periodsData[periodId];
-                                if (periodData === undefined || periodData === null) continue;
-
-                                const value = periodData[field];
-
-                                sum += value.value === undefined ? value : value.value;
-                            }
-
-                            if (child.childrenAfterFilter) {
-                                countChildLeaf(child);
-                            }
-                        }
-                    }
-                    countChildLeaf(params.rowNode);
-                    return sum;
-                },
-                name: params => {
-                    let reference = params.values[0];
-                    if (reference && reference.length > 3) {
-                        reference = reference.slice(3);
-                    }
-
-                    for (let i = 1; i < params.values.length; i++) {
-                        let value = params.values[i];
-                        if (value === '' || !value) {
-                            continue;
-                        }
-                        if (value.length > 3) {
-                            value = value.slice(3);
-                        }
-
-                        if (reference === '') {
-                            reference = value;
-                            continue;
-                        }
-
-                        if (value !== reference) {
-                            return null;
-                        }
-                    }
-
-                    return reference;
-                }
-            },
+            aggFuncs: aggFuncs,
             columnDefs: this.#colDefs,
             autoGroupColumnDef: {
                 minWidth: 160,
                 maxWidth: 320,
                 headerName: 'Источник',
 
-                headerComponent: CustomHeaderWithExpandAll
+                headerComponent: ExpandAllHeader,
                 // cellRenderer: 'agGroupCellRenderer',
             },
             onGridSizeChanged: params => this.#fitColumns(),
