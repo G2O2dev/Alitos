@@ -115,6 +115,7 @@ class AdviceSystem {
         }
         return Promise.resolve();
     }
+    getAdvicesCount() { return this.#advices.length; }
 
     #emitEvent(eventName, detail = {}) {
         this.#eventTarget.dispatchEvent(new CustomEvent(eventName, { detail }));

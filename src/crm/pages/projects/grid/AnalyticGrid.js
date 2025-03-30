@@ -782,23 +782,27 @@ export class AnalyticGrid {
     }
 
     #useCrmStatuses = false;
+
+    get useCrmStatuses() { return this.#useCrmStatuses; }
     toggleCrmStatuses(usedCrmColumns) {
         const periodColumns = ['leads', 'missed', 'declined'];
-        if (this.#useCrmStatuses) {
+        const processedIndex = this.gridOptions.columnDefs.findIndex(colDef => colDef.field === 'processed');
 
-        } else {
-            const newColumnDefs = this.gridOptions.columnDefs.filter(colDef => !periodColumns.some(p => colDef.field?.includes(p)));
-            this.gridOptions.columnDefs = newColumnDefs;
+        const columnsToBuild = this.#useCrmStatuses ? periodColumns : usedCrmColumns;
+        const filterTerms = this.#useCrmStatuses ? usedCrmColumns : periodColumns;
 
-            for (let i = 0; i < this.periods.length; i++) {
-                const period = this.periods[i];
-                newColumnDefs.push(...this.#buildPeriodColumns(i, '', usedCrmColumns));
-            }
+        const newColumnDefs = this.gridOptions.columnDefs.filter(colDef => !filterTerms.some(term => colDef.field?.includes(term)));
 
-            this.gridApi.setGridOption('columnDefs', newColumnDefs);
-        }
+        this.periods.forEach((period, i) => {
+            const periodCols = this.#buildPeriodColumns(i, '', columnsToBuild);
+            newColumnDefs.splice(processedIndex + 1, 0, ...periodCols);
+        });
 
+        this.gridOptions.columnDefs = newColumnDefs;
+        this.gridApi.setGridOption('columnDefs', newColumnDefs);
         this.#useCrmStatuses = !this.#useCrmStatuses;
+
+        return this.#useCrmStatuses;
     }
 
     //#endregion

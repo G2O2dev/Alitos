@@ -22,9 +22,7 @@ export class Loader {
 
     #start() {
         this.spinner.style.animation = "";
-        requestAnimationFrame(() => {
-            this.loader.classList.add("active");
-        });
+        this.loader.classList.add("active");
 
         this.#started = true;
     }
@@ -35,6 +33,7 @@ export class Loader {
         this.loader.addEventListener('transitionend', () => {
             this.spinner.style.animation = "none";
         }, { once: true });
+        setTimeout(() => this.spinner.style.animation = "none", 500);
     }
 
     setText(text) {

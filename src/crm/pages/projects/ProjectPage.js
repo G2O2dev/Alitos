@@ -13,8 +13,6 @@ export class ProjectPage extends Page {
     #periods;
     #periodsEl;
     #periodsAddBtn;
-    #gridLoaded = false;
-    #gridLoading = false;
     #deletedLoaded = false;
     #usedCrmColumns;
 
@@ -46,7 +44,7 @@ export class ProjectPage extends Page {
                 info: { loaderText: 'Загружаю аналитику' }
             },
             {
-                method: () => this.loadProjectInfo(false),
+                method:  () => this.loadProjectInfo(false),
                 info: { loaderText: 'Загружаю настройки проектов' }
             },
             // {
@@ -54,11 +52,11 @@ export class ProjectPage extends Page {
             //     info: { loaderText: 'Выстраиваю хролонологии изменений' }
             // },
             {
-                method: () => this.#loadLimitRate(false),
+                method:  () => this.#loadLimitRate(false),
                 info: { loaderText: 'Анализирую лимиты' }
             },
             {
-                method: () => adviceSystem.waitForLoadComplete(),
+                method:  () => adviceSystem.waitForLoadComplete(),
                 info: { loaderText: 'Думаю над рекомендациями' }
             },
         ]);
@@ -80,11 +78,7 @@ export class ProjectPage extends Page {
                 allowDelete: false,
 
                 onDelete: () => this.#deletePeriod(i),
-                onChanged: async (newFrom, newTo) => {
-                    this.setLoading(true);
-                    await this.#changePeriod(i, newFrom, newTo)
-                    this.setLoading(false);
-                },
+                onChanged: async (newPeriodData) => await this.#changePeriod(i, newPeriodData),
             });
 
             btns.push(btn);
@@ -132,7 +126,20 @@ export class ProjectPage extends Page {
             this.loader.stop();
         });
 
-        this.taskTracker.on("taskStart", (task) => this.loader.setText(task.info.loaderText));
+        this.taskTracker.on("taskStart", () => this.#updateLoaderText());
+        this.taskTracker.on("taskEnd", () => this.#updateLoaderText());
+        this.taskTracker.on("taskCanceled", () => this.#updateLoaderText());
+    }
+    #updateLoaderText() {
+        const tasks = this.taskTracker.getActiveTasks().sort((a, b) => {
+            if (a.parallel && !b.parallel) return -1;
+            if (!a.parallel && b.parallel) return 1;
+            if (a.priority && !b.priority) return -1;
+            if (!a.priority && b.priority) return 1;
+            return 0;
+        });
+
+        if (tasks.length) this.loader.setText(tasks[0].info.loaderText);
     }
     #initSearch() {
         this.mainSearch = new SearchComponent(this.element.querySelector(".projects-search"));
@@ -149,20 +156,6 @@ export class ProjectPage extends Page {
     }
 
 
-    #deletePeriod(index) {
-
-    }
-    async #changePeriod(index, newFrom, newTo) {
-        this.#periods[index] = { from: newFrom, to: newTo, name: this.#periods[index].name };
-
-        const period = this.#periods[index];
-        const analytic = await session.getAnalytic(period.from, period.to, false);
-        await this.#applyAnalyticToRows(analytic, index);
-    }
-    #addPeriod(from, to) {
-
-    }
-
     #getDefaultPeriods() {
         const now = new Date();
         const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
@@ -174,6 +167,34 @@ export class ProjectPage extends Page {
         return [
             { from: weekAgo, to: now, name: "Неделя" }
         ];
+    }
+    #deletePeriod(index) {
+
+    }
+    async #changePeriod(index, newPeriodData) {
+        this.#periods[index] = { from: newPeriodData.from, to: newPeriodData.to, name: newPeriodData.name };
+
+        const period = this.#periods[index];
+
+        if (period.analytic) this.taskTracker.cancelTask(period.analytic.task.id);
+
+        period.analytic = this.taskTracker.addTask({
+            method: async () => {
+                const analytic = [];
+                analytic.push(...await session.getAnalytic(period.from, period.to, false));
+                if (this.#deletedLoaded) {
+                    analytic.push(...await session.getAnalytic(period.from, period.to, true));
+                }
+
+                return analytic;
+            },
+            info: { loaderText: `Загружаю данные за ${period.name.toLowerCase()}` },
+            callback: analytic => this.#applyAnalyticToRows(analytic, index),
+            parallel: true,
+        });
+    }
+    #addPeriod(from, to) {
+
     }
 
     #applyAnalyticToRows(analytic, periodIndex) {
@@ -216,9 +237,7 @@ export class ProjectPage extends Page {
         sevenDaysAgo.setDate(now.getDate() - 6);
 
         const limitTouches = new Map();
-        for (const analyticPromise of session.forEachDayAnalytic(sevenDaysAgo, now, deleted)) {
-            const analytic = await analyticPromise;
-
+        for await (const analytic of session.forEachDayAnalytic(sevenDaysAgo, now, deleted)) {
             analytic.forEach(({ id, callCounts }) => {
                 const project = rows.get(id);
                 if (project && callCounts.processed >= project.limit) {
@@ -254,12 +273,15 @@ export class ProjectPage extends Page {
         this.gridManager.refreshCells();
     }
 
-
     async loadAnalytics(deleted) {
         for (let i = 0; i < this.#periods.length; i++) {
             const period = this.#periods[i];
-            const analytic = await session.getAnalytic(period.from, period.to, deleted);
-            this.#applyAnalyticToRows(analytic, i);
+
+            period.analytic = this.taskTracker.addTask({
+                method: async () => await session.getAnalytic(period.from, period.to, deleted),
+                info: { loaderText: `Загружаю данные за ${period.name.toLowerCase()}` },
+                callback: analytic => this.#applyAnalyticToRows(analytic, i),
+            });
         }
     }
     async loadProjectInfo(deleted) {
@@ -267,28 +289,23 @@ export class ProjectPage extends Page {
         this.#applyProjectInfoToRows(projectInfo);
     }
     async getUsedStatuses() {
-        if (!this.#usedCrmColumns) {
-            const client = await session.getClient();
+        const client = await session.getClient();
 
-            const now = new Date();
-            const createdAt = new Date(Number(client.created_at) * 1000);
-            const allTimeAnalytic = await session.getAnalytic(createdAt, now, false);
+        const now = new Date();
+        const createdAt = new Date(Number(client.created_at) * 1000);
+        const allTimeAnalytic = await session.getAnalytic(createdAt, now, false);
 
-            const usedStatuses = new Map();
-            for (const project of allTimeAnalytic) {
-                for (const key in project.callCounts) {
-                    const value = project.callCounts[key]?.value;
-                    if (value !== undefined && value !== 0) {
-                        usedStatuses.set(key, true);
-                    }
+        const usedStatuses = new Map();
+        for (const project of allTimeAnalytic) {
+            for (const [key, { value }] in project.callCounts) {
+                if (value !== undefined && value !== 0) {
+                    usedStatuses.set(key, true);
                 }
             }
-
-            this.#usedCrmColumns = [...usedStatuses.keys()];
-            this.#usedCrmColumns = this.#usedCrmColumns.filter(status => !['leads', 'missed', 'declined'].includes(status));
         }
 
-        return this.#usedCrmColumns;
+        const usedCrmColumns = [...usedStatuses.keys()];
+        return usedCrmColumns.filter(status => !['leads', 'missed', 'declined'].includes(status));
     }
 
     search(value) {
@@ -305,27 +322,32 @@ export class ProjectPage extends Page {
         toggleSourceGrouping: () => this.toggleSourceGrouping(),
         toggleCrmStatuses: () => this.toggleCrmStatuses(),
     };
-
-    async toggleCrmStatuses() {
-        if (!this.#usedCrmColumns) {
-            this.taskTracker.addTask({
-                method: async () => {
-                    const used = await this.getUsedStatuses();
-                    this.gridManager.toggleCrmStatuses(used);
-                },
-                info: { loaderText: 'Получаю используемые статусы' },
-                parallel: true
-            });
-        } else {
-            this.gridManager.toggleCrmStatuses(this.#usedCrmColumns);
+    #setToggleState(action, state) {
+        const btn = document.querySelector(`[data-action="${action}"]`);
+        if (btn?._toggleInstance) {
+            btn._toggleInstance.setActive(state);
         }
     }
 
+    async toggleCrmStatuses() {
+        this.#setToggleState('toggleCrmStatuses', !this.gridManager.useCrmStatuses);
+
+        if (!this.#usedCrmColumns) {
+            this.#usedCrmColumns = this.taskTracker.addTask({
+                method: async () => await this.getUsedStatuses(),
+                info: { loaderText: 'Получаю используемые статусы' },
+                parallel: true,
+            });
+
+            this.gridManager.toggleCrmStatuses(await this.#usedCrmColumns);
+        } else {
+            const used = await this.#usedCrmColumns;
+            this.gridManager.toggleCrmStatuses(used);
+        }
+    }
     async toggleDeleted() {
         this.gridManager.deletedShown = !this.gridManager.deletedShown;
-
-        const btn = document.querySelector('[data-action="toggleDeleted"]');
-        btn._toggleInstance.setActive(this.gridManager.deletedShown);
+        this.#setToggleState('toggleDeleted', this.gridManager.deletedShown);
 
         if (this.gridManager.deletedShown && !this.#deletedLoaded) {
             this.taskTracker.addTasks([
@@ -343,19 +365,12 @@ export class ProjectPage extends Page {
     }
 
     toggleSourceGrouping() {
-        const isGrouping = this.gridManager.toggleSourcesGrouping();
-        const btn = document.querySelector('[data-action="toggleSourceGrouping"]');
-        btn._toggleInstance.setActive(isGrouping);
+        this.#setToggleState('toggleSourceGrouping', this.gridManager.toggleSourcesGrouping());
     }
-
     togglePercentSort() {
-        const newState = this.gridManager.togglePercentSort();
-        const btn = document.querySelector('[data-action="togglePercentSort"]');
-        btn._toggleInstance.setActive(newState);
+        this.#setToggleState('togglePercentSort', this.gridManager.togglePercentSort());
     }
-
     restoreHidden() {}
-
     refreshData() {}
     //#endregion
 
@@ -373,7 +388,7 @@ export class ProjectPage extends Page {
         this.#adviceModal.render();
     }
     onAdvicesCountChanged() {
-        this.element.querySelector('.advice-btn').setAttribute('data-advice-count', adviceSystem.getAdvices().length);
+        this.element.querySelector('.advice-btn').setAttribute('data-advice-count', adviceSystem.getAdvicesCount());
     }
 
     //#endregion

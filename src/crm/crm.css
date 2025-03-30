@@ -699,6 +699,7 @@
   --color-accent-dark: #1D4ED8;
   --color-green: 140, 67%, 55%;
   --color-blue: 207, 67%, 55%;
+  --color-purple: 281, 67%, 55%;
   --color-red: 0, 67%, 55%;
   --color-yellow: 59, 100%, 55%;
   --color-green-200: hsl(140, 55%, 85%);
@@ -828,7 +829,7 @@
 
 .percent {
   position: absolute;
-  left: 65px;
+  left: 72px;
   color: var(--color-text-tertiary);
 }
 
@@ -895,6 +896,10 @@
   background-color: var(--color-bg);
 }
 
+.ag-header-cell {
+  padding-left: 8px !important;
+}
+
 .leads-cell {
   background-color: hsla(var(--color-green), 0.08);
 }
@@ -905,6 +910,30 @@
 
 .declined-cell {
   background-color: hsla(var(--color-red), 0.08);
+}
+
+.crm_base-cell {
+  background-color: hsla(var(--color-green), 0.05);
+}
+
+.crm_missed-cell {
+  background-color: hsla(var(--color-blue), 0.08);
+}
+
+.crm_conversation-cell, .crm_partner-cell {
+  background-color: hsla(var(--color-purple), 0.08);
+}
+
+.crm_payexpect-cell {
+  background-color: hsla(var(--color-yellow), 0.08);
+}
+
+.crm_closed-cell, .crm_finalymissed-cell, .crm_forreplace-cell {
+  background-color: hsla(var(--color-red), 0.08);
+}
+
+.crm_payed-cell, .crm_hot-cell {
+  background-color: hsla(var(--color-green), 0.08);
 }
 
 .project-limited {
@@ -948,14 +977,21 @@
 
 .toggle-btn[data-action=toggleDeleted]::after {
   mask-image: url("../assets/img/FromTrash.svg");
+  mask-size: 20px;
 }
 
 .toggle-btn[data-action=togglePercentSort]::after {
   mask-image: url("../assets/img/Percent.svg");
+  mask-size: 20px;
 }
 
 .toggle-btn[data-action=toggleSourceGrouping]::after {
   mask-image: url("../assets/img/Group.svg");
+  mask-size: 20px;
+}
+
+.toggle-btn[data-action=toggleCrmStatuses]::after {
+  mask-image: url("../assets/img/FilterRemove.svg");
   mask-size: 20px;
 }
 

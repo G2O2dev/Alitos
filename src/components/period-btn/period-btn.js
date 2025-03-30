@@ -125,7 +125,11 @@ export class PeriodBtn {
             onRangeSelected: (start, end) => {
                 this.labelElem.textContent = this.#formatPeriod(start, end);
                 this.defaultRange = { start, end };
-                this.config.onChanged(start, end);
+                this.config.onChanged({
+                    from: start,
+                    to: end,
+                    name: this.labelElem.textContent,
+                });
             },
             datePickerConfig: { ...this.config, defaultRange: this.defaultRange }
         });
