@@ -66,9 +66,17 @@ export class AlitosPeriodPicker {
     }
     getMonth() {
         const today = new Date();
+
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+        const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+        const end = new Date(today);
+
         const start = new Date(today);
-        start.setMonth(today.getMonth() - 1);
-        return { start, end: today };
+        start.setDate(today.getDate() - daysInCurrentMonth);
+
+        return { start, end };
     }
     getThreeMonths() {
         const today = new Date();
