@@ -785,8 +785,11 @@ export class AnalyticGrid {
 
     get useCrmStatuses() { return this.#useCrmStatuses; }
     toggleCrmStatuses(usedCrmColumns) {
+        const crmStatuses = ['crm_base', 'crm_missed', 'crm_conversation', 'crm_payexpect', 'crm_partner', 'crm_payed', 'crm_closed', 'crm_test', 'crm_hot', 'crm_forreplace', 'crm_finalymissed'];
         const periodColumns = ['leads', 'missed', 'declined'];
         const processedIndex = this.gridOptions.columnDefs.findIndex(colDef => colDef.field === 'processed');
+
+        usedCrmColumns.sort((a, b) => crmStatuses.indexOf(a) - crmStatuses.indexOf(b));
 
         const columnsToBuild = this.#useCrmStatuses ? periodColumns : usedCrmColumns;
         const filterTerms = this.#useCrmStatuses ? usedCrmColumns : periodColumns;

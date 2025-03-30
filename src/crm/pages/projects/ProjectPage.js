@@ -297,7 +297,8 @@ export class ProjectPage extends Page {
 
         const usedStatuses = new Map();
         for (const project of allTimeAnalytic) {
-            for (const [key, { value }] in project.callCounts) {
+            for (const key in project.callCounts) {
+                const value = project.callCounts[key]?.value;
                 if (value !== undefined && value !== 0) {
                     usedStatuses.set(key, true);
                 }
