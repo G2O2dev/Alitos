@@ -303,7 +303,7 @@ async function getWantedNumbersAdvice() {
         });
 
         return advice;
-    } else if (percentDiff <= 20) {
+    } else if (percentDiff <= -20) {
         const suggested = Math.round(config.wantPhones * ((percentDiff + 100) / 100));
 
         advice.title = 'Проведение досбора';
