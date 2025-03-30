@@ -77,22 +77,19 @@ export class AdviceModal extends AlitosModal {
 
         this.innerCcontentElement.appendChild(fragment);
     }
-    onLoadComplete() {
-        this.setLoading(false);
-    }
 
     hide() {
         super.hide();
     }
 
     async loadAdvices() {
-        this.setLoading(true);
+        // this.setLoading(true);
 
         for await (const advice of adviceSystem.loadAdvices()) {
             this.onNewAdvice(advice);
         }
 
-        this.setLoading(false);
+        // this.setLoading(false);
     }
 
     async render() {

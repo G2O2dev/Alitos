@@ -107,6 +107,16 @@ async function getProjectsConfig() {
     return await projectsConfigCache;
 }
 
+let clientInfo = undefined;
+async function getClientInfo() {
+    if (clientInfo) return projectsConfigCache;
+
+    self.postMessage({ type: 'requestClientInfo' });
+    clientInfo = waitForMessage('clientInfoResponse').then(response => response.data.info);
+
+    return await clientInfo;
+}
+
 function *forEachDayAnalytic(startDate, endDate, deleted) {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -142,6 +152,7 @@ const adviceAnalyzers = [
     getMissedAdvice,
     getUngroupAdvice,
     getStatusAdvice,
+    // getLimitAdvice,
 ];
 async function getAdvices() {
     for (const analyzer of adviceAnalyzers) {
@@ -150,6 +161,90 @@ async function getAdvices() {
             self.postMessage({ type: 'newAdvice', data: advice });
         }
     }
+}
+
+function calculateCR(total, leads) {
+    if (total === 0 || !total) {
+        return 0;
+    }
+
+    return (leads / total) * 100;
+}
+
+function calculateExponentiallySmoothed(CRs, alpha) {
+    let smoothedCR = CRs[0];
+
+    for (let i = 1; i < CRs.length; i++) {
+        smoothedCR = alpha * CRs[i] + (1 - alpha) * smoothedCR;
+    }
+
+    return Math.round(smoothedCR * 100) / 100;
+}
+
+async function getInterestConversion() {
+    const client = await getClientInfo();
+    const now = new Date();
+    let createdAt = new Date(Number(client.created_at) * 1000);
+
+    const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+    if (now.getTime() - createdAt.getTime() < TWO_WEEKS_MS) {
+        const analytic = await getAnalytic(createdAt, now);
+        let totalProcessed = 0;
+        let totalLeads = 0;
+        for (const project of analytic) {
+            totalProcessed += project.callCounts.processed;
+            totalLeads += project.callCounts.leads.value;
+        }
+        return calculateCR(totalProcessed, totalLeads);
+    }
+
+    const nineMonthsAgo = new Date(now);
+    nineMonthsAgo.setMonth(nineMonthsAgo.getMonth() - 9);
+    if (createdAt < nineMonthsAgo) {
+        createdAt = nineMonthsAgo;
+    }
+
+    const diffMonths = (now.getFullYear() - createdAt.getFullYear()) * 12 + (now.getMonth() - createdAt.getMonth());
+    let iterationCount;
+    if (diffMonths < 1) {
+        iterationCount = 2;
+    } else if (diffMonths === 1) {
+        iterationCount = 2;
+    } else if (diffMonths === 2) {
+        iterationCount = 3;
+    } else if (diffMonths === 3) {
+        iterationCount = 4;
+    } else {
+        iterationCount = 5;
+    }
+
+    const diffTime = now.getTime() - createdAt.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    const step = Math.floor(diffDays / iterationCount);
+    const stepMs = step * 24 * 60 * 60 * 1000;
+
+    let stepsConversion = [];
+    let lastEndTime = now;
+    for (let i = 0; i < iterationCount; i++) {
+        let startTime = new Date(lastEndTime.getTime() - stepMs);
+
+        const analytic = await getAnalytic(startTime, lastEndTime);
+
+        let stepProcessed = 0;
+        let stepLeads = 0;
+        for (const project of analytic) {
+            stepProcessed += project.callCounts.processed;
+            stepLeads += project.callCounts.leads.value;
+        }
+
+        stepsConversion.push(calculateCR(stepProcessed, stepLeads));
+        lastEndTime = startTime;
+    }
+
+    stepsConversion.reverse();
+    return calculateExponentiallySmoothed(stepsConversion, 0.7);
 }
 
 
@@ -277,12 +372,10 @@ async function getStatusAdvice() {
     const twoDaysAgo = getDateOffset(now, -2);
     const sevenDaysAgo = getDateOffset(now, -6);
 
-    const analytics = await Promise.all([...forEachDayAnalytic(sevenDaysAgo, twoDaysAgo, false)]);
-
     let noStatusTotal = 0;
     let total = 0;
 
-    analytics.forEach(analytic => {
+    for await (const analytic of forEachDayAnalytic(sevenDaysAgo, twoDaysAgo, false)) {
         let statusedLocal = 0;
         let totalLocal = 0;
 
@@ -296,7 +389,7 @@ async function getStatusAdvice() {
 
         total += totalLocal;
         noStatusTotal += totalLocal - statusedLocal;
-    });
+    }
 
     if (noStatusTotal < 5) return;
     const config = await getProjectsConfig();
@@ -313,6 +406,9 @@ async function getStatusAdvice() {
 
 
 async function getLimitAdvice() {
+    // const iConversion = await getInterestConversion();
+    // console.log(iConversion);
+
     const description = ``;
 
     const base = {

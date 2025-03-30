@@ -29,6 +29,9 @@ class AdviceSystem {
             case 'requestProjectsConfig':
                 this.#handleProjectsConfigRequest();
                 break;
+            case 'requestClientInfo':
+                this.#handleClientInfoRequest();
+                break;
             default:
                 console.warn('Неизвестный тип сообщения от воркера:', type);
         }
@@ -69,6 +72,13 @@ class AdviceSystem {
         this.#worker.postMessage({
             type: 'projectsConfigResponse',
             data: { config }
+        });
+    }
+    async #handleClientInfoRequest() {
+        const info = await session.getClient();
+        this.#worker.postMessage({
+            type: 'clientInfoResponse',
+            data: { info }
         });
     }
 

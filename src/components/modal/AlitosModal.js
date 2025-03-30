@@ -3,9 +3,9 @@ import {ModalWindow} from "./modal.js";
 export class AlitosModal extends ModalWindow {
     constructor(options) {
         if (options.contentClasses === undefined) {
-            options.contentClasses = ['alitos-modal', 'border-loader'];
+            options.contentClasses = ['alitos-modal'];
         } else {
-            options.contentClasses = [...options.contentClasses, 'alitos-modal', 'border-loader'];
+            options.contentClasses = [...options.contentClasses, 'alitos-modal'];
         }
 
         super(options);

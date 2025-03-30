@@ -120,9 +120,9 @@ export class ProjectPage extends Page {
         adviceSystem.on("adviceAdded", () => this.onAdvicesCountChanged());
         adviceSystem.on("adviceRemoved", () => this.onAdvicesCountChanged());
 
-        this.taskTracker.on("start", () => this.setLoading(true));
+        // this.taskTracker.on("start", () => this.setLoading(true));
         this.taskTracker.on("finish", () => {
-            this.setLoading(false);
+            // this.setLoading(false);
             this.loader.stop();
         });
 

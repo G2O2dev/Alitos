@@ -133,7 +133,8 @@
 
 .ag-root-wrapper {
   border-radius: 8px 8px 0 0;
-  border: none;
+  border: 1px solid var(--color-gray-400);
+  border-bottom: none;
   background-color: var(--color-bg);
 }
 
