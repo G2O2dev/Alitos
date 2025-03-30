@@ -1,28 +1,59 @@
-
 import session from './session.js';
+
 class AdviceSystem {
     #advices = [];
-    #isLoading = false;
-    #isLoaded = false;
-    #eventTarget = new EventTarget();
+    #loading = false;
+    #loaded = false;
     #worker = new Worker(chrome.runtime.getURL('src/crm/client/advice-worker.js'));
+    #adviceQueue = [];
+    #adviceResolvers = [];
+    #loadCompletePromise = null;
+    #loadCompleteResolve = null;
+    #eventTarget = new EventTarget();
 
     constructor() {
-        this.#worker.onmessage = (event) => {
-            const { type, data } = event.data;
-            if (type === 'newAdvice') {
-                this.#advices.push(data);
-                this.#emitEvent('newAdvice', { advice: data });
-            } else if (type === 'loadComplete') {
-                this.#isLoading = false;
-                this.#isLoaded = true;
-                this.#emitEvent('loadComplete');
-            } else if (type === 'requestAnalytics') {
+        this.#worker.onmessage = this.#handleWorkerMessage.bind(this);
+    }
+
+    #handleWorkerMessage = ({ data: { type, data } }) => {
+        switch (type) {
+            case 'newAdvice':
+                this.#handleNewAdvice(data);
+                break;
+            case 'loadComplete':
+                this.#handleLoadComplete();
+                break;
+            case 'requestAnalytics':
                 this.#handleAnalyticsRequest(data.sliceName);
-            } else if (type === 'requestProjectsConfig') {
+                break;
+            case 'requestProjectsConfig':
                 this.#handleProjectsConfigRequest();
-            }
-        };
+                break;
+            default:
+                console.warn('Неизвестный тип сообщения от воркера:', type);
+        }
+    };
+
+    #handleNewAdvice(data) {
+        this.#advices.push(data);
+        if (this.#adviceResolvers.length) {
+            this.#adviceResolvers.shift()({ advice: data, done: false });
+        } else {
+            this.#adviceQueue.push(data);
+        }
+
+        this.#emitEvent('adviceAdded', { advice: data, count: this.#advices.length });
+    }
+
+    #handleLoadComplete() {
+        this.#loading = false;
+        this.#loaded = true;
+        if (this.#loadCompleteResolve) {
+            this.#loadCompleteResolve();
+        }
+        while (this.#adviceResolvers.length) {
+            this.#adviceResolvers.shift()({ advice: null, done: true });
+        }
     }
 
     async #handleAnalyticsRequest(sliceName) {
@@ -32,6 +63,7 @@ class AdviceSystem {
             data: { sliceName, analytics }
         });
     }
+
     async #handleProjectsConfigRequest() {
         const config = await session.getProjectsConfig();
         this.#worker.postMessage({
@@ -40,38 +72,58 @@ class AdviceSystem {
         });
     }
 
-    getAdvices() {
-        if (!this.#isLoading && !this.#isLoaded) {
-            this.#isLoading = true;
-            this.#isLoaded = false;
-            this.#advices = [];
-            this.#worker.postMessage({ type: 'getAdvices' });
-        }
-        return this.#advices;
+    #startLoading() {
+        this.#loading = true;
+        this.#loaded = false;
+        this.#advices = [];
+        this.#adviceQueue = [];
+        this.#adviceResolvers = [];
+        this.#loadCompletePromise = new Promise(resolve => {
+            this.#loadCompleteResolve = resolve;
+        });
+        this.#worker.postMessage({ type: 'getAdvices' });
     }
-    isLoading() {
-        return this.#isLoading;
+
+    async *loadAdvices() {
+        if (!this.#loading && !this.#loaded) {
+            this.#startLoading();
+        }
+        while (true) {
+            if (this.#adviceQueue.length) {
+                yield this.#adviceQueue.shift();
+            } else if (this.#loaded) {
+                return;
+            } else {
+                const nextAdvice = await new Promise(resolve => {
+                    this.#adviceResolvers.push(resolve);
+                });
+                if (nextAdvice.done) return;
+                yield nextAdvice.advice;
+            }
+        }
+    }
+    async waitForLoadComplete() {
+        if (this.#loaded) return;
+        if (!this.#loading) this.#startLoading();
+        return this.#loadCompletePromise;
+    }
+    async applyAdvice(advice) {
+        const index = this.#advices.indexOf(advice);
+        if (index !== -1) {
+            this.#advices.splice(index, 1);
+            this.#emitEvent('adviceRemoved', { advice, count: this.#advices.length });
+        }
+        return Promise.resolve();
     }
 
     #emitEvent(eventName, detail = {}) {
         this.#eventTarget.dispatchEvent(new CustomEvent(eventName, { detail }));
     }
-
-    onNewAdvice(callback) {
-        this.#eventTarget.addEventListener('newAdvice', (event) => callback(event.detail.advice));
+    on(eventName, callback) {
+        this.#eventTarget.addEventListener(eventName, callback);
     }
-    onLoadComplete(callback) {
-        if (this.#isLoaded) {
-            callback();
-            return;
-        }
-        this.#eventTarget.addEventListener('loadComplete', callback);
-    }
-    offNewAdvice(callback) {
-        this.#eventTarget.removeEventListener('newAdvice', callback);
-    }
-    offLoadComplete(callback) {
-        this.#eventTarget.removeEventListener('loadComplete', callback);
+    off(eventName, callback) {
+        this.#eventTarget.removeEventListener(eventName, callback);
     }
 }
 

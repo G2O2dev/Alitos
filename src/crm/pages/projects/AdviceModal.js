@@ -83,9 +83,16 @@ export class AdviceModal extends AlitosModal {
 
     hide() {
         super.hide();
+    }
 
-        // adviceSystem.offNewAdvice(this.onNewAdvice);
-        // adviceSystem.offLoadComplete(this.onLoadComplete);
+    async loadAdvices() {
+        this.setLoading(true);
+
+        for await (const advice of adviceSystem.loadAdvices()) {
+            this.onNewAdvice(advice);
+        }
+
+        this.setLoading(false);
     }
 
     async render() {
@@ -95,22 +102,12 @@ export class AdviceModal extends AlitosModal {
             this.#firstRender = false;
         }
 
-        adviceSystem.onNewAdvice((a) => this.onNewAdvice(a));
-        adviceSystem.onLoadComplete(() => this.onLoadComplete());
-
-        const advices = adviceSystem.getAdvices();
-        for (const advice of advices) {
-            content += this.#buildAdviceCard(advice);
-        }
+        this.loadAdvices();
 
         if (super.render(content)) {
             for (const card of this.innerCcontentElement.querySelectorAll('.advice-card')) {
                 this.#setupEventsForCard(card);
             }
         }
-
-
-        if (adviceSystem.isLoading())
-            this.setLoading(true);
     }
 }

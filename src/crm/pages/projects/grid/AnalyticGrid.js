@@ -27,6 +27,7 @@ export class AnalyticGrid {
     constructor(config) {
         const {selector, periods} = config;
         this.gridElement = document.querySelector(selector);
+        this.periods = periods;
 
         this.gridOptions = this.#buildGridOptions(periods);
         this.gridApi = agGrid.createGrid(this.gridElement, this.gridOptions);
@@ -456,8 +457,75 @@ export class AnalyticGrid {
     }
 
     #buildPeriodColumns(periodDataIndex, periodName = '', visibleColumns = ['processed', 'leads', 'missed', 'declined']) {
+        const periodValueGetter = (params) => {
+            const periodId = params.colDef.context.periodId;
+            const field = params.colDef.field;
+            const periodData = params.data?.periodsData[periodId];
+            if (!periodData) return 0;
+            const fieldData = periodData[field];
+            return (fieldData.value !== undefined) ? (this.isPercentSorting ? fieldData.percent : fieldData.value) : fieldData;
+        };
+
+        const cellRender = (params, showPercent = true) => {
+            const { field } = params.colDef;
+            const periodId = params.colDef.context.periodId;
+            let value, percent;
+            if (params.node.group) {
+                if (!showPercent) return params.value;
+                if (params.value && typeof params.value === 'object' && params.value.value !== undefined) {
+                    ({ value, percent } = params.value);
+                } else {
+                    value = params.value;
+                    const totalKey = `processed${periodId === 0 ? '' : `_${periodId}`}`;
+                    const total = params.node.aggData[totalKey];
+                    percent = calcPercent(total, value);
+                }
+            } else {
+                const periodData = params.data.periodsData[periodId];
+                if (!periodData) return 0;
+                const fieldData = periodData[field];
+                if (!showPercent) return fieldData.value !== undefined ? fieldData.value : fieldData;
+                value = fieldData.value;
+                percent = fieldData.percent;
+            }
+            const percentStr = formatPercentage(percent);
+            return `${value} <span class="percent">${percentStr}%</span>`;
+        };
+
+        const getColumnName = (field) => {
+            switch (field) {
+                case 'processed': return 'Номера';
+                case 'leads': return 'Лиды';
+                case 'missed': return 'Недозвоны';
+                case 'declined': return 'Отказы';
+
+                case 'crm_base': return 'База';
+                case 'crm_missed': return 'Недозвон';
+                case 'crm_conversation': return 'Переговоры';
+                case 'crm_payexpect': return 'Ожидаем оплаты';
+                case 'crm_partner': return 'Партнёрка';
+                case 'crm_payed': return 'Оплачено';
+                case 'crm_closed': return 'Закрыто и не реализовано';
+                case 'crm_test': return 'Тест драйв';
+                case 'crm_hot': return 'Горячий';
+                case 'crm_finalymissed': return 'Конечный недозвон';
+                case 'crm_forreplace': return 'На замену';
+                default: return field;
+            }
+        };
+
+        const getColumnTooltip = (field, periodName) => {
+            switch (field) {
+                case 'processed': return `Всего номеров за ${periodName}.`;
+                case 'leads': return `Лиды за ${periodName}.\nКолонка является суммой статусов:\n- Переговоры\n- Ожидаем оплаты\n- Партнёрка\n- Оплачено\n- Тест драйв\n- Горячий`;
+                case 'missed': return `Недозвоны за ${periodName}.\nКолонка является суммой статусов:\n- Недозвон\n- Конечный недозвон`;
+                case 'declined': return `Отказы за ${periodName}.\nКолонка является суммой статусов:\n- Закрыто и не реализовано\n- На замену`;
+                default: return field;
+            }
+        };
+
         const createPeriodColumn = (header, field, headerTooltip, cellRenderer, cellClass) => {
-            const colDef = {
+            return {
                 headerName: header,
                 field,
                 minWidth: 120,
@@ -469,169 +537,72 @@ export class AnalyticGrid {
                 },
                 headerTooltip,
                 aggFunc: "period",
-                comparator: (a, b, aNode, bNode, isDesc) => {
+                comparator: (a, b, aNode, bNode) => {
                     if (this.isPercentSorting && this.sourcesGrouping) {
                         const columnStates = this.gridApi.getColumnState();
                         const sortedColumns = columnStates.filter(col => col.sort)
                             .sort((colA, colB) => colA.sortIndex - colB.sortIndex);
-
                         for (const sortInfo of sortedColumns) {
                             const column = this.gridApi.getColumn(sortInfo.colId);
                             const colDef = column.getColDef();
                             const periodId = colDef.context.periodId;
-
                             let aPercent, bPercent;
                             if (aNode.aggData) {
                                 const processedName = `processed${periodId === 0 ? '' : `_${periodId}`}`;
                                 const aProcessed = aNode.aggData[processedName];
                                 const bProcessed = bNode.aggData[processedName];
-
                                 const aValue = aNode.aggData[colDef.field];
                                 const bValue = bNode.aggData[colDef.field];
-
                                 aPercent = calcPercent(aProcessed, aValue);
                                 bPercent = calcPercent(bProcessed, bValue);
                             } else {
                                 const aPeriodData = aNode.data.periodsData[periodId];
-                                if (aPeriodData === undefined) continue;
+                                const bPeriodData = bNode.data.periodsData[periodId];
+                                if (!aPeriodData || !bPeriodData) continue;
                                 const aData = aPeriodData[field];
-
-                                const bPeriodData = aNode.data.periodsData[periodId];
-                                if (bPeriodData === undefined) continue;
                                 const bData = bPeriodData[field];
-
                                 aPercent = aData.percent === undefined ? aData : aData.percent;
                                 bPercent = bData.percent === undefined ? bData : bData.percent;
                             }
-
-                            if (aPercent !== bPercent) {
-                                return aPercent - bPercent;
-                            }
+                            if (aPercent !== bPercent) return aPercent - bPercent;
                         }
-
                         return 0;
                     }
-
                     return a - b;
                 },
-                context: {
-                    periodId: periodDataIndex
-                },
+                context: { periodId: periodDataIndex },
                 valueGetter: periodValueGetter,
+                cellRenderer: cellRenderer,
+                cellClass: cellClass,
                 suppressColumnsToolPanel: true,
             };
-            if (cellRenderer) colDef.cellRenderer = cellRenderer;
-            if (cellClass) colDef.cellClass = cellClass;
-            return colDef;
-        };
-        const periodValueGetter = (params) => {
-            const periodId = params.colDef.context.periodId;
-            const filed = params.colDef.field;
-
-            const periodData = params.data.periodsData[periodId];
-            if (periodData === undefined || periodData === null) return 0;
-
-            const fieldData = periodData[filed];
-
-            return fieldData.value !== undefined ? (this.isPercentSorting ? fieldData.percent : fieldData.value) : fieldData;
-        }
-        const cellRender = (params, showPercent = true) => {
-            const {field} = params.colDef;
-            const periodId = params.colDef.context.periodId;
-            let value, percent;
-
-            if (params.node.group) {
-                if (!showPercent) return params.value;
-
-                if (params.value && typeof params.value === 'object' && params.value.value !== undefined) {
-                    ({value, percent} = params.value);
-                } else {
-                    value = params.value;
-
-                    const totalKey = `processed${periodId === 0 ? '' : `_${periodId}`}`;
-                    const total = params.node.aggData[totalKey];
-                    percent = calcPercent(total, value);
-                }
-            } else {
-                const periodData = params.data.periodsData[periodId];
-                if (periodData === undefined) return 0;
-
-                const fieldData = periodData[field];
-
-                if (!showPercent) {
-                    return fieldData.value !== undefined ? fieldData.value : fieldData;
-                }
-                value = fieldData.value;
-                percent = fieldData.percent;
-            }
-
-            const percentStr = formatPercentage(percent);
-            return `${value} <span class="percent">${percentStr}%</span>`;
         };
 
-        const getColumnName = (field) => {
-            switch (field) {
-                case 'processed':
-                    return 'Номера';
-                case 'leads':
-                    return 'Лиды';
-                case 'missed':
-                    return 'Недозвоны';
-                case 'declined':
-                    return 'Отказы';
-
-                case 'crm_base':
-                    return 'База';
-                case 'crm_missed':
-                    return 'Недозвон';
-                case 'crm_conversation':
-                    return 'Переговоры';
-                case 'crm_payexpect':
-                    return 'Ожидаем оплаты';
-                case 'crm_partner':
-                    return 'Партнёрка';
-                case 'crm_payed':
-                    return 'Оплачено';
-                case 'crm_closed':
-                    return 'Закрыто и не реализовано';
-                case 'crm_test':
-                    return 'Тест драйв';
-                case 'crm_hot':
-                    return 'Горячий';
-                case 'crm_finalymissed':
-                    return 'Конечный недозвон';
-                default:
-                    return field;
-            }
-        };
-        const getColumnTooltip = (field, periodName) => {
-            switch (field) {
-                case 'processed':
-                    return `Всего номеров за ${periodName}.`;
-                case 'leads':
-                    return `Лиды за ${periodName}.\nКолонка является суммой статусов:\n- Переговоры\n- Ожидаем оплаты\n- Партнёрка\n- Оплачено\n- Тест драйв\n- Горячий`;
-                case 'missed':
-                    return `Недозвоны за ${periodName}.\nКолонка является суммой статусов:\n- Недозвон\n- Конечный недозвон`;
-                case 'declined':
-                    return `Отказы за ${periodName}.\nКолонка является суммой статусов:\n- Закрыто и не реализовано\n- На замену`;
-                default:
-                    return field;
-            }
-        };
-
-        const columns = [];
-        for (const columnField of visibleColumns) {
+        return visibleColumns.map(columnField => {
             const columnName = getColumnName(columnField);
-            const column = createPeriodColumn(
+            return createPeriodColumn(
                 `${columnName}${periodName ? ` ${periodName}` : ''}`,
                 columnField,
                 getColumnTooltip(columnField, periodName),
                 params => cellRender(params, columnField !== 'processed'),
-                columnField + "-cell",
+                `${columnField}-cell`
             );
-            columns.push(column);
-        }
-        return columns;
+        });
+    }
+
+    #hideColumns(columnsToHide = []) {
+        const newColumnDefs = this.gridOptions.columnDefs.filter(colDef => !columnsToHide.includes(colDef.field));
+        this.gridOptions.columnDefs = newColumnDefs;
+        this.gridApi.setGridOption('columnDefs', newColumnDefs);
+    }
+
+    #addColumns(newColumns = []) {
+        const mergedColumns = [
+            ...this.gridOptions.columnDefs,
+            ...newColumns
+        ];
+        this.gridOptions.columnDefs = mergedColumns;
+        this.gridApi.setGridOption('columnDefs', mergedColumns);
     }
 
     #sendSelectedToClipboard = params => {
@@ -810,13 +781,24 @@ export class AnalyticGrid {
         this.onReset?.();
     }
 
-    togglePeriodGrouping() {
-        this.gridApi.updateGridOptions({
-            ...this.gridOptions,
-            columnDefs: [
-                ...this.gridOptions.columnDefs,
-            ]
-        });
+    #useCrmStatuses = false;
+    toggleCrmStatuses(usedCrmColumns) {
+        const periodColumns = ['leads', 'missed', 'declined'];
+        if (this.#useCrmStatuses) {
+
+        } else {
+            const newColumnDefs = this.gridOptions.columnDefs.filter(colDef => !periodColumns.some(p => colDef.field?.includes(p)));
+            this.gridOptions.columnDefs = newColumnDefs;
+
+            for (let i = 0; i < this.periods.length; i++) {
+                const period = this.periods[i];
+                newColumnDefs.push(...this.#buildPeriodColumns(i, '', usedCrmColumns));
+            }
+
+            this.gridApi.setGridOption('columnDefs', newColumnDefs);
+        }
+
+        this.#useCrmStatuses = !this.#useCrmStatuses;
     }
 
     //#endregion
