@@ -1,6 +1,8 @@
 import {PageNavigator} from "./pages/PageNavigator.js";
 import {ProjectPage} from "./pages/projects/ProjectPage.js";
 import {SettingsPage} from "./pages/settings/SettingsPage.js";
+import {TaskTracker} from "../lib/task-tracker.js";
+import {Loader} from "../components/loader/loader.js";
 
 
 globalThis.pageNav = new PageNavigator({

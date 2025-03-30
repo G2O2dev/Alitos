@@ -6,6 +6,8 @@ import { SearchComponent } from "../../../components/search/search.js";
 import {AdviceModal} from "./AdviceModal.js";
 import adviceSystem from "../../client/advices.js";
 import {PeriodBtn} from "../../../components/period-btn/period-btn.js";
+import {TaskTracker} from "../../../lib/task-tracker.js";
+import {Loader} from "../../../components/loader/loader.js";
 
 export class ProjectPage extends Page {
     #periods;
@@ -14,34 +16,53 @@ export class ProjectPage extends Page {
     #gridLoaded = false;
     #gridLoading = false;
     #deletedLoaded = false;
+    #usedCrmColumns;
 
     #adviceModal;
     #collectionsModal;
 
+    taskTracker = new TaskTracker();
+
     constructor() {
         super('projects');
+        this.loader = new Loader('.project-loader');
         this.#periods = this.#getDefaultPeriods();
         this.gridManager = new AnalyticGrid({
             selector: "#grid",
             periods: this.#periods,
         });
         this.#setupEvents();
-    }
-    show() {
-        super.show();
-        if (this.#gridLoaded || this.#gridLoading) return;
-        this.#gridLoading = true;
 
-        this.setLoading(true);
         this.#setupPeriodBtns();
         this.#initSearch();
 
-        this.loadGridData(false).then(() => {
-            this.setLoading(false);
-            this.#gridLoaded = true;
-        }).catch(this.#onError);
+        this.#startLoading();
     }
 
+    #startLoading() {
+        this.taskTracker.addTasks([
+            {
+                method: () => this.loadAnalytics(false),
+                info: { loaderText: 'Загружаю аналитику' }
+            },
+            {
+                method: () => this.loadProjectInfo(false),
+                info: { loaderText: 'Загружаю настройки проектов' }
+            },
+            // {
+            //     method: () => this.loadProjectInfo(false),
+            //     info: { loaderText: 'Выстраиваю хролонологии изменений' }
+            // },
+            {
+                method: () => this.#loadLimitRate(false),
+                info: { loaderText: 'Анализирую лимиты' }
+            },
+            {
+                method: () => adviceSystem.waitForLoadComplete(),
+                info: { loaderText: 'Думаю над рекомендациями' }
+            },
+        ]);
+    }
     async #setupPeriodBtns() {
         this.#periodsEl = document.querySelector('.periods-settings');
         this.#periodsAddBtn = document.querySelector('.periods-settings__add-period');
@@ -102,8 +123,16 @@ export class ProjectPage extends Page {
             btn._toggleInstance.setActive(false);
         };
 
-        adviceSystem.onNewAdvice(() => this.onAdvicesCountChanged());
-        adviceSystem.onLoadComplete(() => this.onAdvicesCountChanged());
+        adviceSystem.on("adviceAdded", () => this.onAdvicesCountChanged());
+        adviceSystem.on("adviceRemoved", () => this.onAdvicesCountChanged());
+
+        this.taskTracker.on("start", () => this.setLoading(true));
+        this.taskTracker.on("finish", () => {
+            this.setLoading(false);
+            this.loader.stop();
+        });
+
+        this.taskTracker.on("taskStart", (task) => this.loader.setText(task.info.loaderText));
     }
     #initSearch() {
         this.mainSearch = new SearchComponent(this.element.querySelector(".projects-search"));
@@ -180,68 +209,86 @@ export class ProjectPage extends Page {
     }
     async #loadLimitRate(deleted) {
         const rows = this.gridManager.rows;
-        if (rows.size === 0) return;
+        if (!rows.size) return;
 
         const now = new Date();
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(now.getDate() - 6);
 
         const limitTouches = new Map();
-        const dayAnalyticPromises = [];
         for (const analyticPromise of session.forEachDayAnalytic(sevenDaysAgo, now, deleted)) {
-            dayAnalyticPromises.push(analyticPromise);
-        }
+            const analytic = await analyticPromise;
 
-        const daysData = await Promise.all(dayAnalyticPromises);
-        for (const dayData of daysData) {
-            for (const aProject of dayData) {
-                const project = rows.get(aProject.id);
-
-                if (project && aProject.callCounts.processed >= project.limit) {
-                    limitTouches.set(aProject.id, (limitTouches.get(aProject.id) || 0) + 1);
+            analytic.forEach(({ id, callCounts }) => {
+                const project = rows.get(id);
+                if (project && callCounts.processed >= project.limit) {
+                    limitTouches.set(id, (limitTouches.get(id) || 0) + 1);
                 }
-            }
+            });
         }
 
-        for (const row of rows.values()) {
-            const touches = limitTouches.get(row.id) || 0;
-
-            if (touches >= 3) {
-                row.limitState = "warning";
-            } else if (touches > 0) {
-                row.limitState = "hint";
+        for (let touch of limitTouches) {
+            const project = rows.get(touch[0]);
+            if (touch[1] >= 3) {
+                project.limitState = "warning";
+            } else if (touch[1] > 0) {
+                project.limitState = "hint";
             }
         }
 
         const managerInfo = await session.getManagerInfo();
         if (managerInfo?.role === "Manager") {
             try {
-                const limitPotential = await session.getLimitPotential(new Date());
-                for (const aProject of limitPotential) {
-                    const project = rows.get(aProject.id);
+                const limitPotential = await session.getLimitPotential(now);
+                limitPotential.forEach(({ id, cnt_without_limit_filter }) => {
+                    const project = rows.get(id);
                     if (project) {
-                        project.limitPotential = aProject.cnt_without_limit_filter;
+                        project.limitPotential = cnt_without_limit_filter;
                     }
-                }
-            } catch (e) { console.error(e); }
+                });
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         this.gridManager.refreshCells();
     }
 
-    async loadGridData(deleted) {
+
+    async loadAnalytics(deleted) {
         for (let i = 0; i < this.#periods.length; i++) {
             const period = this.#periods[i];
             const analytic = await session.getAnalytic(period.from, period.to, deleted);
             this.#applyAnalyticToRows(analytic, i);
         }
-
+    }
+    async loadProjectInfo(deleted) {
         const projectInfo = await session.getProjects(deleted);
         this.#applyProjectInfoToRows(projectInfo);
+    }
+    async getUsedStatuses() {
+        if (!this.#usedCrmColumns) {
+            const client = await session.getClient();
 
-        await this.#loadLimitRate(deleted);
+            const now = new Date();
+            const createdAt = new Date(Number(client.created_at) * 1000);
+            const allTimeAnalytic = await session.getAnalytic(createdAt, now, false);
 
-        adviceSystem.getAdvices();
+            const usedStatuses = new Map();
+            for (const project of allTimeAnalytic) {
+                for (const key in project.callCounts) {
+                    const value = project.callCounts[key]?.value;
+                    if (value !== undefined && value !== 0) {
+                        usedStatuses.set(key, true);
+                    }
+                }
+            }
+
+            this.#usedCrmColumns = [...usedStatuses.keys()];
+            this.#usedCrmColumns = this.#usedCrmColumns.filter(status => !['leads', 'missed', 'declined'].includes(status));
+        }
+
+        return this.#usedCrmColumns;
     }
 
     search(value) {
@@ -255,21 +302,44 @@ export class ProjectPage extends Page {
         togglePercentSort: () => this.togglePercentSort(),
         restoreHidden: () => this.restoreHidden(),
         refreshData: () => this.refreshData(),
-        toggleSourceGrouping: () => this.toggleSourceGrouping()
+        toggleSourceGrouping: () => this.toggleSourceGrouping(),
+        toggleCrmStatuses: () => this.toggleCrmStatuses(),
     };
 
+    async toggleCrmStatuses() {
+        if (!this.#usedCrmColumns) {
+            this.taskTracker.addTask({
+                method: async () => {
+                    const used = await this.getUsedStatuses();
+                    this.gridManager.toggleCrmStatuses(used);
+                },
+                info: { loaderText: 'Получаю используемые статусы' },
+                parallel: true
+            });
+        } else {
+            this.gridManager.toggleCrmStatuses(this.#usedCrmColumns);
+        }
+    }
+
     async toggleDeleted() {
-        this.setLoading(true);
         this.gridManager.deletedShown = !this.gridManager.deletedShown;
 
         const btn = document.querySelector('[data-action="toggleDeleted"]');
         btn._toggleInstance.setActive(this.gridManager.deletedShown);
 
         if (this.gridManager.deletedShown && !this.#deletedLoaded) {
-            await this.loadGridData(true);
+            this.taskTracker.addTasks([
+                {
+                    method: () => this.loadAnalytics(true),
+                    info: { loaderText: 'Загружаю аналитику удалённых проектов' }
+                },
+                {
+                    method: () => this.loadProjectInfo(true),
+                    info: { loaderText: 'Загружаю настройки удалённых проектов' }
+                },
+            ])
             this.#deletedLoaded = true;
         }
-        this.setLoading(false);
     }
 
     toggleSourceGrouping() {
@@ -292,7 +362,6 @@ export class ProjectPage extends Page {
     //#region Header buttons
     #btnActions = {
         openAdviceModal: () => this.openAdviceModal(),
-        openCollectionsModal: () => this.openCollectionsModal(),
     };
 
     openAdviceModal() {
@@ -305,10 +374,6 @@ export class ProjectPage extends Page {
     }
     onAdvicesCountChanged() {
         this.element.querySelector('.advice-btn').setAttribute('data-advice-count', adviceSystem.getAdvices().length);
-    }
-
-    openCollectionsModal() {
-
     }
 
     //#endregion

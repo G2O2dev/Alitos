@@ -640,6 +640,48 @@
   mask-image: url("../assets/img/tag.svg");
 }
 
+.loader {
+  position: fixed;
+  z-index: 10;
+  bottom: 15px;
+  right: 15px;
+  min-width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  background-color: var(--color-gray-100);
+  border-radius: var(--corner-radius);
+  border: 1px solid var(--color-gray-400);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.loader.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.spinner {
+  border: 2px solid transparent;
+  border-top: 2px solid var(--color-gray-900);
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
 :root {
   --corner-radius: 8px;
   --color-bg: hsl(0, 0%, 100%);
