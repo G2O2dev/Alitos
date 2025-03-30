@@ -351,16 +351,18 @@ export class ProjectPage extends Page {
         this.#setToggleState('toggleDeleted', this.gridManager.deletedShown);
 
         if (this.gridManager.deletedShown && !this.#deletedLoaded) {
-            this.taskTracker.addTasks([
-                {
-                    method: () => this.loadAnalytics(true),
-                    info: { loaderText: 'Загружаю аналитику удалённых проектов' }
-                },
-                {
+            const analytic = this.taskTracker.addTask({
+                method: () => this.loadAnalytics(true),
+                info: { loaderText: 'Загружаю аналитику удалённых проектов' }
+            });
+
+            if (analytic.length) {
+                await this.taskTracker.addTask({
                     method: () => this.loadProjectInfo(true),
                     info: { loaderText: 'Загружаю настройки удалённых проектов' }
-                },
-            ])
+                });
+            }
+
             this.#deletedLoaded = true;
         }
     }
