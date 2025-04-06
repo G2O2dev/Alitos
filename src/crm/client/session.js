@@ -6,7 +6,9 @@ class Session {
     #cache;
 
     constructor() {
-        this.#cache = new DeepCache();
+        this.#cache = new DeepCache({
+            useStorage: false,
+        });
     }
 
     getAnalyticSliceName(from, to, deleted) {
@@ -81,6 +83,48 @@ class Session {
             'projects_config',
             () => crmApi.getProjectsConfig(),
         );
+    }
+
+    async updateProject(newProjectData) {
+        const resp = await crmApi.updateProject(newProjectData);
+
+        if (resp.ok) {
+            await this.#cache.updateByPrefix('analytic_', (project) => {
+                if (newProjectData.id === project.id) {
+                    Object.keys(newProjectData).forEach(key => {
+                        if (project.hasOwnProperty(key)) {
+                            project[key] = newProjectData[key];
+                        }
+                    });
+                }
+
+                return project;
+            });
+        } else {
+            throw new Error("Cant update project", resp);
+        }
+    }
+    async disableProjects(ids) {
+        const resp = await crmApi.disableProject(ids);
+
+        await this.#cache.updateByPrefix('analytic_', (project) => {
+            if (ids.some(id => id === project.id)) {
+                project.state = "Неактивен";
+            }
+
+            return project;
+        });
+    }
+    async enableProjects(ids) {
+        const resp = await crmApi.enableProject(ids);
+
+        await this.#cache.updateByPrefix('analytic_', (project) => {
+            if (ids.some(id => id === project.id)) {
+                project.state = "Активен";
+            }
+
+            return project;
+        });
     }
 }
 

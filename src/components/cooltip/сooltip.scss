@@ -9,11 +9,12 @@
   z-index: 1000;
   box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
   transform-origin: var(--transform-origin);
-  white-space: nowrap;
-  max-width: calc(100vw - 30px);
-  overflow-wrap: break-word;
+
+  text-wrap: wrap;
+  max-width: 360px;
+
   opacity: 0;
-  transform:  translateY(10px);
+  transform: translateY(10px);
   transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
   transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform, opacity, left, top;

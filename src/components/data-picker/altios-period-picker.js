@@ -1,10 +1,10 @@
-import { DatePicker } from "./date-picker.js";
+import {DatePicker} from "./date-picker.js";
 
 export class AlitosPeriodPicker {
     constructor(target, config) {
         this.config = config;
         this.relativeElement = target;
-        this.selectedRange = { start: null, end: null };
+        this.selectedRange = {start: null, end: null};
 
         this.build();
     }
@@ -27,13 +27,24 @@ export class AlitosPeriodPicker {
         this.periodPicker.appendChild(this.sidebar);
 
         const periods = [
-            { label: 'Сегодня', getRange: () => this.getToday() },
-            { label: 'Вчера', getRange: () => this.getYesterday() },
-            { label: 'Неделя', getRange: () => this.getWeek() },
-            { label: 'Месяц', getRange: () => this.getMonth() },
-            { label: '3 месяца', getRange: () => this.getThreeMonths() },
-            { label: 'Год', getRange: () => this.getYear() }
+            {label: 'Сегодня', getRange: () => this.getToday()},
+            {label: 'Вчера', getRange: () => this.getYesterday()},
+            {label: 'Неделя', getRange: () => this.getWeek()},
+            {label: 'Месяц', getRange: () => this.getMonth()},
+            {label: '3 месяца', getRange: () => this.getThreeMonths()},
+            {label: 'Год', getRange: () => this.getYear()}
         ];
+
+        if (this.config.allowedRange) {
+            periods.push({
+                label: 'Всё время', getRange: () => {
+                    return {
+                        start: this.config.allowedRange.minDate,
+                        end: this.config.allowedRange.maxDate,
+                    }
+                }
+            });
+        }
 
         periods.forEach(period => {
             const button = document.createElement('button');
@@ -51,19 +62,22 @@ export class AlitosPeriodPicker {
 
     getToday() {
         const today = new Date();
-        return { start: today, end: today };
+        return {start: today, end: today};
     }
+
     getYesterday() {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        return { start: yesterday, end: yesterday };
+        return {start: yesterday, end: yesterday};
     }
+
     getWeek() {
         const today = new Date();
         const start = new Date(today);
         start.setDate(today.getDate() - 6);
-        return { start, end: today };
+        return {start, end: today};
     }
+
     getMonth() {
         const today = new Date();
 
@@ -76,18 +90,20 @@ export class AlitosPeriodPicker {
         const start = new Date(today);
         start.setDate(today.getDate() - daysInCurrentMonth);
 
-        return { start, end };
+        return {start, end};
     }
+
     getThreeMonths() {
         const today = new Date();
         const start = new Date(today);
         start.setMonth(today.getMonth() - 3);
-        return { start, end: today };
+        return {start, end: today};
     }
+
     getYear() {
         const today = new Date();
         const start = new Date(today);
         start.setFullYear(today.getFullYear() - 1);
-        return { start, end: today };
+        return {start, end: today};
     }
 }

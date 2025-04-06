@@ -1,4 +1,4 @@
-@import "../components/cooltip/сooltip", "../components/search/search", "../components/toggle-btn/toggle-btn", "./border-animation", "../components/modal/modal", "../components/modal/alitos-modal", "../components/data-picker/date-picker", "../components/period-btn/period-btn", "./icons", "../components/loader/loader";
+@import "../components/cooltip/сooltip", "../components/search/search", "../components/toggle-btn/toggle-btn", "./border-animation", "../components/modal/modal", "../components/modal/alitos-modal", "../components/data-picker/date-picker", "../components/period-btn/period-btn", "./icons", "../components/loader/loader", "../components/drop-down/drop-down", "../components/input/input";
 
 :root {
   --corner-radius: 8px;
@@ -76,7 +76,7 @@
 
 @font-face {
   font-family: 'Montserrat';
-  src: url("../assets/fonts/Montserrat.ttf") format("ttf");
+  src: url("../assets/fonts/Montserrat.woff2") format("woff2");
 }
 
 * {

@@ -11,12 +11,14 @@ import {aggFuncs} from "./helpers/aggFuncs.js";
 import {dateFormatter, weekdaysFormatter} from "./helpers/formatters.js";
 import {ExpandAllHeader} from "./render/ExpandAllHeader.js";
 import {SmartnameToggleHeader} from "./render/SmartnameToggleHeader.js";
+import {AggTotalCellRenderer} from "./render/AggTotal.js";
 
 export class AnalyticGrid {
     _deletedShown = false;
     _rows = new Map();
     _searchCache = {};
     #colDefs;
+    #eventTarget = new EventTarget();
 
     gridApi = null;
     gridElement = null;
@@ -55,12 +57,8 @@ export class AnalyticGrid {
 
     #buildGridOptions(periods) {
         const theme = agGrid.themeQuartz.withParams({
-            fontFamily: 'SFPro, Tahoma',
-            headerFontFamily: 'SFPro, Tahoma',
-            cellFontFamily: 'SFPro, Tahoma',
             accentColor: 'var(--color-accent)',
             backgroundColor: 'var(--color-bg)',
-            browserColorScheme: 'dark',
             chromeBackgroundColor: {ref: 'foregroundColor', mix: 0.07, onto: 'backgroundColor'},
             columnHoverColor: 'var(--color-gray-200)',
             foregroundColor: 'var(--color-text-primary)',
@@ -69,10 +67,11 @@ export class AnalyticGrid {
             headerFontSize: 14,
             headerRowBorder: true,
             rowHoverColor: 'var(--color-gray-100)',
+            selectedRowBackgroundColor: "var(--color-gray-200)",
             spacing: 6,
             headerVerticalPaddingScale: 0.8,
             wrapperBorder: true,
-            wrapperBorderRadius: 10,
+            wrapperBorderRadius: 'var(--corner-radius)',
             rowBorder: {style: 'solid', width: 1, color: 'var(--color-gray-300)'},
             columnBorder: {style: 'solid', width: 1, color: 'var(--color-gray-300)'},
         });
@@ -91,9 +90,7 @@ export class AnalyticGrid {
             const cached = getFromCache(params.node);
             if (cached) return cached;
 
-            const childValues = params.node.allLeafChildren.map(child =>
-                createCellHtml(child.data?.smartName.name, child.data?.smartName.tag)
-            );
+            const childValues = params.node.allLeafChildren.map(child => createCellHtml(child.data?.smartName.name, child.data?.smartName.tag));
             if (allEqual(childValues)) {
                 setToCache(params.node, childValues[0]);
                 return childValues[0];
@@ -320,11 +317,47 @@ export class AnalyticGrid {
             rowData: null,
             suppressAggFuncInHeader: true,
 
+            rowSelection: {
+                mode: "multiRow",
+                hideDisabledCheckboxes: true,
+                groupSelects: "filteredDescendants",
+
+                headerCheckbox: true,
+                selectAll: "filtered",
+            },
+            selectionColumnDef: {
+                colId: "checkboxColumn",
+                maxWidth: 35,
+                minWidth: 35,
+                cellStyle: (p) => {
+                    if (!p.node.footer) {
+                        return { padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+                    }
+                },
+                colSpan: (p) => {
+                    if (p.node.footer) {
+                        return this.sourcesGrouping ? 4 : 3;
+                    }
+                    return 1;
+                },
+                cellRendererSelector: (params) => {
+                    if (params.node.footer) {
+                        return {
+                            component: AggTotalCellRenderer,
+                            params: {
+                                grid: this,
+                            },
+                        };
+                    }
+                },
+            },
+
+            onSelectionChanged: () => this.#onSelectionChanged(),
+
             isExternalFilterPresent: () => true,
             doesExternalFilterPass: node => this.#filter(node),
             getRowId: params => typeof params.data === 'string' ? params.data : params.data.id,
             cellSelection: {
-                suppressMultiRanges: true,
                 enableHeaderHighlight: true,
             },
             defaultColDef: {
@@ -341,7 +374,6 @@ export class AnalyticGrid {
                 headerName: 'Источник',
 
                 headerComponent: ExpandAllHeader,
-                // cellRenderer: 'agGroupCellRenderer',
             },
             onGridSizeChanged: params => this.#fitColumns(),
             onFirstDataRendered: params => this.#fitColumns(),
@@ -350,32 +382,6 @@ export class AnalyticGrid {
                     !['cut', 'copyWithHeaders', 'copyWithGroupHeaders', 'paste'].includes(i)
                 );
                 const newItems = [];
-                if (column.colDef.field === "id") {
-                    const deleteItem = {
-                        name: 'Удалить',
-                        action: () => {
-                            const toRemove = this.getSelectedRows().map(row => row.data.id);
-                            crmApi.deleteProjects(toRemove);
-                        },
-                    };
-                    const disableItem = {
-                        name: 'Отключить',
-                        action: () => {
-                            const toRemove = this.getSelectedRows().map(row => row.data.id);
-                            crmApi.disableProjects(toRemove);
-                        },
-                    };
-                    const enableItem = {
-                        name: 'Включить',
-                        action: () => {
-                            const toRemove = this.getSelectedRows().map(row => row.data.id);
-                            crmApi.enableProjects(toRemove);
-                        },
-                    };
-                    newItems.push(enableItem);
-                    newItems.push(disableItem);
-                    newItems.push(deleteItem);
-                }
                 newItems.push({
                     name: 'Копировать источники',
                     action: () => this.copySourcesOfSelected(),
@@ -394,7 +400,11 @@ export class AnalyticGrid {
                     });
                 }
 
-                return [...newDefaultItems, ...newItems];
+                const items = newItems;
+                if (newDefaultItems)
+                    items.push(...newDefaultItems);
+
+                return items;
             },
             getMainMenuItems: ({defaultItems}) => {
                 const filtered = defaultItems?.filter(i => !['pinSubMenu', 'autoSizeThis', 'autoSizeAll', 'resetColumns'].includes(i));
@@ -409,7 +419,116 @@ export class AnalyticGrid {
             onColumnVisible: ({api}) => api.sizeColumnsToFit(),
             sendToClipboard: this.#sendSelectedToClipboard,
             onFilterChanged: () => this.#refreshAggregated(),
+
+            processCellForClipboard: (params) => {
+                if (params.column.colId === 'smartName') {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(params.value.name, 'text/html');
+                    return doc.body.textContent;
+                }
+                return params.value;
+            },
+
+            onGridReady: (params) => {
+                const gridApi = params.api;
+                let isDragSelecting = false;
+                let dragSelectAction = null;
+                let startRowNode = null;
+                let initialRowIndex = -1;
+                const gridBodyViewport = this.gridElement.querySelector('.ag-body-viewport');
+
+                const getRowNodeFromEvent = (event) => {
+                    const scrollTop = gridBodyViewport.scrollTop;
+                    const mouseYRelative = event.clientY - gridBodyViewport.getBoundingClientRect().top;
+                    const absolutePixel = mouseYRelative + scrollTop;
+                    const renderedNodes = gridApi.getRenderedNodes();
+                    if (renderedNodes.length === 0) return null;
+
+                    let foundNode = renderedNodes.find(node =>
+                        node && node.rowTop != null && node.rowHeight != null &&
+                        absolutePixel >= node.rowTop && absolutePixel < (node.rowTop + node.rowHeight)
+                    ) || (mouseYRelative < 0 ? renderedNodes.find(n => n?.selectable) :
+                        mouseYRelative > gridBodyViewport.getBoundingClientRect().height ? renderedNodes.slice().reverse().find(n => n?.selectable) : null);
+
+                    return foundNode?.selectable ? foundNode : null;
+                };
+
+                const onMouseDown = (e) => {
+                    if (e.button !== 0 || !e.target.closest('[col-id="ag-Grid-SelectionColumn"]') || !e.target.closest('.ag-body-viewport')) return;
+                    e.preventDefault();
+                    const node = getRowNodeFromEvent(e);
+                    if (node && node.selectable && node.rowIndex != null) {
+                        isDragSelecting = true;
+                        startRowNode = node;
+                        initialRowIndex = node.rowIndex;
+                        dragSelectAction = node.isSelected() ? 'deselect' : 'select';
+                        document.addEventListener('mousemove', onMouseMove, { passive: false });
+                        document.addEventListener('mouseup', onMouseUp);
+                    }
+                };
+
+                const onMouseMove = (e) => {
+                    if (!isDragSelecting || !startRowNode) return;
+                    e.preventDefault();
+                    const currentRowNode = getRowNodeFromEvent(e);
+                    if (!currentRowNode || !currentRowNode.selectable || currentRowNode.rowIndex == null || currentRowNode.rowIndex === startRowNode.rowIndex) return;
+
+                    const currentRowIndex = currentRowNode.rowIndex;
+                    const targetSelectionState = dragSelectAction === 'select';
+                    const lowerIndex = Math.min(startRowNode.rowIndex, currentRowIndex);
+                    const upperIndex = Math.max(startRowNode.rowIndex, currentRowIndex);
+                    const currentDragMin = Math.min(initialRowIndex, currentRowIndex);
+                    const currentDragMax = Math.max(initialRowIndex, currentRowIndex);
+                    const nodesToSelect = [];
+                    const nodesToDeselect = [];
+
+                    for (let i = lowerIndex; i <= upperIndex; i++) {
+                        const node = gridApi.getDisplayedRowAtIndex(i);
+                        if (node && node.selectable && node.rowIndex != null) {
+                            const shouldBeSelected = (node.rowIndex >= currentDragMin && node.rowIndex <= currentDragMax) ? targetSelectionState : !targetSelectionState;
+                            if (node.isSelected() !== shouldBeSelected) {
+                                (shouldBeSelected ? nodesToSelect : nodesToDeselect).push(node);
+                            }
+                        }
+                    }
+
+                    if (nodesToSelect.length) gridApi.setNodesSelected({ nodes: nodesToSelect, newValue: true, suppressFinishActions: true });
+                    if (nodesToDeselect.length) gridApi.setNodesSelected({ nodes: nodesToDeselect, newValue: false, suppressFinishActions: true });
+
+                    startRowNode = currentRowNode;
+                };
+
+                const onMouseUp = (e) => {
+                    if (e.button !== 0 || !isDragSelecting) return;
+                    const isClick = startRowNode.rowIndex === initialRowIndex;
+
+                    if (isClick && startRowNode) {
+                        const newValue = dragSelectAction === 'select';
+                        gridApi.setNodesSelected({ nodes: [startRowNode], newValue });
+                    } else {
+                        gridApi.setNodesSelected({ nodes: [], newValue: false });
+                    }
+
+                    isDragSelecting = false;
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    startRowNode = null;
+                    initialRowIndex = -1;
+                    dragSelectAction = null;
+                };
+
+                this.gridElement.addEventListener('mousedown', onMouseDown);
+                gridApi.addEventListener('gridPreDestroy', () => {
+                    this.gridElement.removeEventListener('mousedown', onMouseDown);
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                });
+            }
         };
+    }
+
+    #onSelectionChanged() {
+        this.#emit("selectionChanged");
     }
 
     #refreshAggregated() {
@@ -445,10 +564,19 @@ export class AnalyticGrid {
         this.gridApi.refreshCells({force: true});
     }
 
-    #projectTypeRenderer({value, data}) {
-        return data?.sources
-            ? `${value} <span class="sources_count">${data.sources.length}</span>`
-            : value;
+    #projectTypeRenderer(p) {
+        if (p.value?.startsWith('Сайты')) {
+            if (!p.eGridCell.dataset.clickListenerAdded) {
+                p.eGridCell.dataset.clickListenerAdded = "true";
+                p.eGridCell.addEventListener("click", () => {
+                    p.data.sources.forEach(d => window.open("https://" + d, '_blank').focus());
+                });
+            }
+        }
+
+        return p.data?.sources
+            ? `${p.value} <span class="sources_count">${p.data.sources.length}</span>`
+            : p.value;
     }
 
     #getCellClassByStatus(data) {
@@ -709,6 +837,19 @@ export class AnalyticGrid {
         return false;
     }
 
+    //#region Events
+
+    #emit(eventName, detail = {}) {
+        this.#eventTarget.dispatchEvent(new CustomEvent(eventName, { detail }));
+    }
+    on(eventName, callback) {
+        this.#eventTarget.addEventListener(eventName, callback);
+    }
+    off(eventName, callback) {
+        this.#eventTarget.removeEventListener(eventName, callback);
+    }
+
+    //#endregion
 
     //#region Rows/Cells
     addRows(rows) {

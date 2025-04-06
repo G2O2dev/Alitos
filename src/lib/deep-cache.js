@@ -15,7 +15,6 @@ export class DeepCache {
     //#region Main
     async get(key, fetchFn, options = {}) {
         const { ttl = this.defaultTTL, useStorage = true } = options;
-
         const memoryHit = this._getFromMemory(key);
         if (memoryHit !== undefined) return memoryHit;
 
@@ -35,7 +34,6 @@ export class DeepCache {
     async set(key, value, options = {}) {
         const { ttl = this.defaultTTL, useStorage = true } = options;
         this._setToMemory(key, value, ttl);
-
         if (useStorage && this.storageAdapter) {
             await this._setToStorage(key, value, ttl);
         }
@@ -61,18 +59,30 @@ export class DeepCache {
         await this.set(key, updated, options);
         return updated;
     }
+
     async atomicUpdate(key, updater, options = {}) {
         const current = await this.get(key, () => Promise.resolve(undefined), options);
         let updated;
-
         try {
             updated = updater(this._deepClone(current));
         } catch (error) {
             throw new Error(`Update failed: ${error}`);
         }
-
         await this.set(key, updated, options);
         return updated;
+    }
+
+    async updateByPrefix(prefix, updater, options = {}) {
+        const keys = Array.from(this.memoryCache.keys());
+        for (const key of keys) {
+            if (key.startsWith(prefix)) {
+                try {
+                    await this.atomicUpdate(key, updater, options);
+                } catch (error) {
+                    console.error(`Ошибка обновления ключа "${key}":`, error);
+                }
+            }
+        }
     }
     //#endregion
 
@@ -85,11 +95,11 @@ export class DeepCache {
         }
         return entry.value;
     }
+
     async _getFromStorage(key) {
         try {
             const stored = await this.storageAdapter.getItem(key);
             if (!stored) return undefined;
-
             const { value, expiry } = this.deserialize(stored);
             if (expiry < Date.now()) {
                 await this.storageAdapter.removeItem(key);
@@ -108,6 +118,7 @@ export class DeepCache {
             expiry: ttl === Infinity ? Infinity : Date.now() + ttl,
         });
     }
+
     async _setToStorage(key, value, ttl) {
         try {
             await this.storageAdapter.setItem(
@@ -122,20 +133,21 @@ export class DeepCache {
         }
     }
 
-
     _setByPath(obj, path, value) {
         const parts = path.split('.');
         const last = parts.pop();
         let current = obj;
-
         for (const part of parts) {
             current[part] = current[part] || {};
             current = current[part];
         }
-
         if (last) {
             current[last] = value;
         }
+    }
+
+    _deepClone(obj) {
+        return JSON.parse(JSON.stringify(obj));
     }
 }
 

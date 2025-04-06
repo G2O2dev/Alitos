@@ -40,21 +40,45 @@ class Cooltip {
     attachTooltip(element) {
         if (this.attachedElements.has(element)) return;
         this.attachedElements.add(element);
-        element.addEventListener('mouseenter', () => this.showTooltip(element));
-        element.addEventListener('mouseleave', () => this.hideTooltip());
-        element.addEventListener('focus', () => this.showTooltip(element));
-        // element.addEventListener('blur', () => this.hideTooltip());
+
+        const mouseEnterHandler = () => this.showTooltip(element);
+        const mouseLeaveHandler = () => this.hideTooltip();
+        const focusHandler = () => this.showTooltip(element);
+        const blurHandler = () => this.hideTooltip();
+
+        element._cooltipHandlers = {
+            mouseEnterHandler,
+            mouseLeaveHandler,
+            focusHandler,
+            blurHandler
+        };
+
+        element.addEventListener('mouseenter', mouseEnterHandler);
+        element.addEventListener('mouseleave', mouseLeaveHandler);
+        element.addEventListener('focus', focusHandler);
+        element.addEventListener('blur', blurHandler);
+    }
+
+    detachTooltip(element) {
+        if (!this.attachedElements.has(element)) return;
+        this.attachedElements.delete(element);
+        const handlers = element._cooltipHandlers;
+        if (handlers) {
+            element.removeEventListener('mouseenter', handlers.mouseEnterHandler);
+            element.removeEventListener('mouseleave', handlers.mouseLeaveHandler);
+            element.removeEventListener('focus', handlers.focusHandler);
+            element.removeEventListener('blur', handlers.blurHandler);
+            delete element._cooltipHandlers;
+        }
     }
 
     calculatePosition(element) {
         const rect = element.getBoundingClientRect();
-        // Для корректного измерения тултипа уже отображаем его (но скрывая от пользователя)
         const tooltipRect = this.sharedTooltip.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
         const padding = 10;
         let position = null;
 
-        // Если указан атрибут data-tooltip-side – используем его значение
         const sideAttr = element.dataset.tooltipSide;
         if (sideAttr) {
             switch (sideAttr.toLowerCase()) {
@@ -125,14 +149,12 @@ class Cooltip {
         if (this.currentElement === element) return;
         this.currentElement = element;
         this.sharedTooltip.textContent = element.dataset.tooltip;
-        // Показываем тултип для измерения размеров, но скрываем от пользователя
+
         this.sharedTooltip.style.visibility = 'hidden';
         this.sharedTooltip.style.display = 'block';
 
-        // Пересчитываем позицию с учётом текущих размеров тултипа
         const position = this.calculatePosition(element);
 
-        // Возвращаем видимость по умолчанию
         this.sharedTooltip.style.visibility = '';
 
         // Ограничиваем положение, чтобы тултип не выходил за пределы окна
@@ -166,4 +188,4 @@ class Cooltip {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => new Cooltip());
+globalThis.cooltip = new Cooltip();

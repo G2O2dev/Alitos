@@ -1,0 +1,35 @@
+$border-color-invalid: red;
+
+.custom-input {
+  padding: 6px 8px;
+  background-color: var(--color-gray-100);
+  border: 1px solid var(--color-gray-300);
+
+  box-sizing: border-box;
+
+  font-size: 14px;
+  color: var(--color-text-primary);
+  border-radius: var(--corner-radius);
+  transition: border-color 0.25s ease-out, background-color 0.25s ease-out;
+
+  &.input-invalid {
+    border-color: hsla(var(--color-red), 0.3) !important;
+  }
+
+  &::placeholder {
+    color: var(--color-text-tertiary);
+    font-size: 14px;
+  }
+
+  &:hover {
+    border-color: var(--color-gray-400);
+    background-color: var(--color-gray-200);
+  }
+
+  &:focus {
+    outline: none;
+
+    border-color: var(--color-gray-400);
+    background-color: var(--color-bg);
+  }
+}

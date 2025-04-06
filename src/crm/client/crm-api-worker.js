@@ -6,7 +6,7 @@ function replaceDomainsWithLinks(text, blankTarget = false) {
         if (group1) {
             url = group1;
         } else if (group2) {
-            url = 'http://' + group2;
+            url = 'https://' + group2;
         } else {
             url = match;
         }

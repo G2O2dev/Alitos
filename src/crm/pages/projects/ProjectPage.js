@@ -1,13 +1,14 @@
-import { Page } from '../Page.js';
-import { AnalyticGrid } from "./grid/AnalyticGrid.js";
-import { ToggleBtn } from "../../../components/toggle-btn/toggle-btn.js";
+import {Page} from '../Page.js';
+import {AnalyticGrid} from "./grid/AnalyticGrid.js";
+import {ToggleBtn} from "../../../components/toggle-btn/toggle-btn.js";
 import session from "../../client/session.js";
-import { SearchComponent } from "../../../components/search/search.js";
+import {SearchComponent} from "../../../components/search/search.js";
 import {AdviceModal} from "./AdviceModal.js";
 import adviceSystem from "../../client/advices.js";
 import {PeriodBtn} from "../../../components/period-btn/period-btn.js";
 import {TaskTracker} from "../../../lib/task-tracker.js";
 import {Loader} from "../../../components/loader/loader.js";
+import {ProjectFastActions} from "./ProjectFastActions.js";
 
 export class ProjectPage extends Page {
     #periods;
@@ -29,6 +30,9 @@ export class ProjectPage extends Page {
             selector: "#grid",
             periods: this.#periods,
         });
+
+        this.#setupFastActions();
+
         this.#setupEvents();
 
         this.#setupPeriodBtns();
@@ -37,30 +41,151 @@ export class ProjectPage extends Page {
         this.#startLoading();
     }
 
+    #setupFastActions() {
+        this.fastActions = new ProjectFastActions('.projects-fast-actions', {
+            actionItems: [
+                // {
+                //     label: "Установить лимит",
+                //     value: "setLimit",
+                //     tooltip: "Устанавливает указанный лимит для выбранных проектов",
+                //     inputConfig: {
+                //         mode: "number",
+                //         allowNegative: false,
+                //         allowPercent: false,
+                //         min: 0,
+                //         placeholder: "Новый лимит",
+                //         tooltip: "Ойойоой"
+                //     },
+                //     callback: async (newLimit) => {
+                //         this.taskTracker.addTask({
+                //             method: async () => this.#applyToSelected(async (selected) => {
+                //                 for (const project of selected) {
+                //                     project.projectData.limit = newLimit;
+                //                     await session.updateProject(project.projectData);
+                //                 }
+                //             }),
+                //             info: {loaderText: 'Включаю проекты'},
+                //             parallel: true
+                //         });
+                //     }
+                // },
+                // {
+                //     label: "Корректировать лимит",
+                //     value: "correctLimit",
+                //     tooltip: "Принимает положительное, отрицательное значение, и значение со знаком %, применяет значение к лимиту каждого выбранного проекта",
+                //     inputConfig: {
+                //         mode: "number",
+                //         allowNegative: true,
+                //         allowPercent: true,
+                //         min: 0,
+                //         placeholder: "Корректировка лимита"
+                //     },
+                // },
+                // {
+                //     label: "Установить имя",
+                //     value: "setName",
+                //     inputConfig: {
+                //         mode: "text",
+                //         placeholder: "Новое имя"
+                //     },
+                // },
+                // {
+                //     label: "Установить тег",
+                //     value: "setTag",
+                //     tooltip: "Новый тег в формате ...",
+                //     inputConfig: {
+                //         mode: "text",
+                //         placeholder: "Новый тег"
+                //     },
+                // },
+                {
+                    label: "Отключить",
+                    value: "disable",
+                    callback: async () => {
+                        this.taskTracker.addTask({
+                            method: async () => this.#applyToSelected(async (selected) => {
+                                const selectedIds = selected.map(i => i.id);
+
+                                await session.disableProjects(selectedIds);
+
+                                for (const project of selected) {
+                                    project.state = "Неактивен";
+                                }
+                            }),
+                            info: {loaderText: 'Отключаю проекты'},
+                            parallel: true
+                        });
+                    }
+                },
+                {
+                    label: "Включить",
+                    value: "enable",
+                    callback: async () => {
+                        this.taskTracker.addTask({
+                            method: async () => this.#applyToSelected(async (selected) => {
+                                const selectedIds = selected.map(i => i.id);
+
+                                await session.enableProjects(selectedIds);
+
+                                for (const project of selected) {
+                                    project.state = "Активен";
+                                }
+                            }),
+                            info: {loaderText: 'Включаю проекты'},
+                            parallel: true
+                        });
+                    }
+                }
+            ]
+        });
+
+        this.gridManager.on('selectionChanged', () => {
+            if (this.gridManager.gridApi.getSelectedRows().length > 0) {
+                this.fastActions.show();
+            } else {
+                this.fastActions.hide();
+            }
+        });
+    }
+
+    async #applyToSelected(fn) {
+        const selected = this.gridManager.gridApi.getSelectedRows();
+
+        await fn(selected);
+
+        this.gridManager.gridApi.deselectAll();
+
+        this.gridManager.gridApi.refreshCells({
+            rowNodes: selected,
+            force: true
+        });
+    }
+
     #startLoading() {
         this.taskTracker.addTasks([
             {
                 method: () => this.loadAnalytics(false),
-                info: { loaderText: 'Загружаю аналитику' }
+                info: {loaderText: 'Загружаю аналитику'}
             },
             {
-                method:  () => this.loadProjectInfo(false),
-                info: { loaderText: 'Загружаю настройки проектов' }
+                method: () => this.loadProjectInfo(false),
+                info: {loaderText: 'Загружаю настройки проектов'}
             },
             // {
             //     method: () => this.loadProjectInfo(false),
             //     info: { loaderText: 'Выстраиваю хролонологии изменений' }
             // },
             {
-                method:  () => this.#loadLimitRate(false),
-                info: { loaderText: 'Анализирую лимиты' }
+                method: () => this.#loadLimitRate(false),
+                info: {loaderText: 'Анализирую лимиты'}
             },
             {
-                method:  () => adviceSystem.waitForLoadComplete(),
-                info: { loaderText: 'Думаю над рекомендациями' }
+                method: () => adviceSystem.waitForLoadComplete(),
+                info: {loaderText: 'Думаю над рекомендациями'}
             },
         ]);
     }
+
     async #setupPeriodBtns() {
         this.#periodsEl = document.querySelector('.periods-settings');
         this.#periodsAddBtn = document.querySelector('.periods-settings__add-period');
@@ -87,10 +212,14 @@ export class ProjectPage extends Page {
             session.getClient().then(client => {
                 const now = new Date();
                 const createdAt = new Date(Number(client.created_at) * 1000);
+                createdAt.setHours(0, 0, 0, 0);
+
+
                 btns.forEach(btn => btn.setAllowedRange(createdAt, now));
             })
         }
     }
+
     #setupEvents() {
         this.element.querySelectorAll(".toggle-btn").forEach(btn => {
             btn._toggleInstance = new ToggleBtn(btn);
@@ -130,6 +259,7 @@ export class ProjectPage extends Page {
         this.taskTracker.on("taskEnd", () => this.#updateLoaderText());
         this.taskTracker.on("taskCanceled", () => this.#updateLoaderText());
     }
+
     #updateLoaderText() {
         const tasks = this.taskTracker.getActiveTasks().sort((a, b) => {
             if (a.parallel && !b.parallel) return -1;
@@ -141,6 +271,7 @@ export class ProjectPage extends Page {
 
         if (tasks.length) this.loader.setText(tasks[0].info.loaderText);
     }
+
     #initSearch() {
         this.mainSearch = new SearchComponent(this.element.querySelector(".projects-search"));
         this.mainSearch.element.addEventListener("search-input", e => this.gridManager.search(e.detail.query));
@@ -151,6 +282,7 @@ export class ProjectPage extends Page {
             }
         });
     }
+
     #onError(err) {
         console.error(err);
     }
@@ -165,14 +297,16 @@ export class ProjectPage extends Page {
         weekAgo.setHours(0, 0, 0, 0);
 
         return [
-            { from: weekAgo, to: now, name: "Неделя" }
+            {from: weekAgo, to: now, name: "Неделя"}
         ];
     }
+
     #deletePeriod(index) {
 
     }
+
     async #changePeriod(index, newPeriodData) {
-        this.#periods[index] = { from: newPeriodData.from, to: newPeriodData.to, name: newPeriodData.name };
+        this.#periods[index] = {from: newPeriodData.from, to: newPeriodData.to, name: newPeriodData.name};
 
         const period = this.#periods[index];
 
@@ -188,11 +322,12 @@ export class ProjectPage extends Page {
 
                 return analytic;
             },
-            info: { loaderText: `Загружаю данные за ${period.name.toLowerCase()}` },
+            info: {loaderText: `Загружаю данные за ${period.name.toLowerCase()}`},
             callback: analytic => this.#applyAnalyticToRows(analytic, index),
             parallel: true,
         });
     }
+
     #addPeriod(from, to) {
 
     }
@@ -208,15 +343,19 @@ export class ProjectPage extends Page {
                 newRows.push(structuredClone(project));
             }
         });
+
         const newRowsLen = newRows.length;
         this.gridManager.addRows(newRows);
         if (this.gridManager.rows.size !== newRowsLen)
             this.gridManager.refreshCells();
     }
+
     #applyProjectInfoToRows(projectsInfo) {
         for (const project of projectsInfo) {
             if (this.gridManager.rows.has(project.id)) {
                 const rowData = this.gridManager.rows.get(project.id);
+
+                rowData.projectData = project;
 
                 rowData.today_numbers = project.phones_cnt_now;
                 rowData.duplicate_count = project.duplicate_cnt;
@@ -228,6 +367,7 @@ export class ProjectPage extends Page {
 
         this.gridManager.refreshCells();
     }
+
     async #loadLimitRate(deleted) {
         const rows = this.gridManager.rows;
         if (!rows.size) return;
@@ -238,7 +378,7 @@ export class ProjectPage extends Page {
 
         const limitTouches = new Map();
         for await (const analytic of session.forEachDayAnalytic(sevenDaysAgo, now, deleted)) {
-            analytic.forEach(({ id, callCounts }) => {
+            analytic.forEach(({id, callCounts}) => {
                 const project = rows.get(id);
                 if (project && callCounts.processed >= project.limit) {
                     limitTouches.set(id, (limitTouches.get(id) || 0) + 1);
@@ -259,7 +399,7 @@ export class ProjectPage extends Page {
         if (managerInfo?.role === "Manager") {
             try {
                 const limitPotential = await session.getLimitPotential(now);
-                limitPotential.forEach(({ id, cnt_without_limit_filter }) => {
+                limitPotential.forEach(({id, cnt_without_limit_filter}) => {
                     const project = rows.get(id);
                     if (project) {
                         project.limitPotential = cnt_without_limit_filter;
@@ -279,15 +419,17 @@ export class ProjectPage extends Page {
 
             period.analytic = this.taskTracker.addTask({
                 method: async () => await session.getAnalytic(period.from, period.to, deleted),
-                info: { loaderText: `Загружаю данные за ${period.name.toLowerCase()}` },
+                info: {loaderText: `Загружаю данные за ${period.name.toLowerCase()}`},
                 callback: analytic => this.#applyAnalyticToRows(analytic, i),
             });
         }
     }
+
     async loadProjectInfo(deleted) {
         const projectInfo = await session.getProjects(deleted);
         this.#applyProjectInfoToRows(projectInfo);
     }
+
     async getUsedStatuses() {
         const client = await session.getClient();
 
@@ -323,6 +465,7 @@ export class ProjectPage extends Page {
         toggleSourceGrouping: () => this.toggleSourceGrouping(),
         toggleCrmStatuses: () => this.toggleCrmStatuses(),
     };
+
     #setToggleState(action, state) {
         const btn = document.querySelector(`[data-action="${action}"]`);
         if (btn?._toggleInstance) {
@@ -336,7 +479,7 @@ export class ProjectPage extends Page {
         if (!this.#usedCrmColumns) {
             this.#usedCrmColumns = this.taskTracker.addTask({
                 method: async () => await this.getUsedStatuses(),
-                info: { loaderText: 'Получаю используемые статусы' },
+                info: {loaderText: 'Получаю используемые статусы'},
                 parallel: true,
             });
 
@@ -346,6 +489,7 @@ export class ProjectPage extends Page {
             this.gridManager.toggleCrmStatuses(used);
         }
     }
+
     async toggleDeleted() {
         this.gridManager.deletedShown = !this.gridManager.deletedShown;
         this.#setToggleState('toggleDeleted', this.gridManager.deletedShown);
@@ -353,13 +497,13 @@ export class ProjectPage extends Page {
         if (this.gridManager.deletedShown && !this.#deletedLoaded) {
             const analytic = this.taskTracker.addTask({
                 method: () => this.loadAnalytics(true),
-                info: { loaderText: 'Загружаю аналитику удалённых проектов' }
+                info: {loaderText: 'Загружаю аналитику удалённых проектов'}
             });
 
             if (analytic.length) {
                 await this.taskTracker.addTask({
                     method: () => this.loadProjectInfo(true),
-                    info: { loaderText: 'Загружаю настройки удалённых проектов' }
+                    info: {loaderText: 'Загружаю настройки удалённых проектов'}
                 });
             }
 
@@ -370,11 +514,17 @@ export class ProjectPage extends Page {
     toggleSourceGrouping() {
         this.#setToggleState('toggleSourceGrouping', this.gridManager.toggleSourcesGrouping());
     }
+
     togglePercentSort() {
         this.#setToggleState('togglePercentSort', this.gridManager.togglePercentSort());
     }
-    restoreHidden() {}
-    refreshData() {}
+
+    restoreHidden() {
+    }
+
+    refreshData() {
+    }
+
     //#endregion
 
     //#region Header buttons
@@ -390,6 +540,7 @@ export class ProjectPage extends Page {
         this.#adviceModal.open();
         this.#adviceModal.render();
     }
+
     onAdvicesCountChanged() {
         this.element.querySelector('.advice-btn').setAttribute('data-advice-count', adviceSystem.getAdvicesCount());
     }

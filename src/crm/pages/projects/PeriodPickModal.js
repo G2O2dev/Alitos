@@ -8,7 +8,8 @@ export class PeriodPickModal extends ModalWindow {
     #observer;
 
     constructor(config) {
-        super({ contentClasses: ['period-pick-modal'] });
+        super();
+        this.modalContainer.classList.add('period-pick-container');
         this.config = config;
         this.#periodPicker = new AlitosPeriodPicker(this.contentElement, {
             mode: 'range',

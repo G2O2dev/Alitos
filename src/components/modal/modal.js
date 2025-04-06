@@ -18,6 +18,7 @@ export class ModalWindow {
 
         modalActiveClass: 'modal-active',
         contentClasses: '',
+        containerClasses: '',
     };
 
     _lastRenderedHTML = null;
