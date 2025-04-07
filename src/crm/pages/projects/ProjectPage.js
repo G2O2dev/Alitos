@@ -1,7 +1,7 @@
 import {Page} from '../Page.js';
 import {AnalyticGrid} from "./grid/AnalyticGrid.js";
 import {ToggleBtn} from "../../../components/toggle-btn/toggle-btn.js";
-import session from "../../client/session.js";
+import crmSession from "../../client/crm-session.js";
 import {SearchComponent} from "../../../components/search/search.js";
 import {AdviceModal} from "./AdviceModal.js";
 import adviceSystem from "../../client/advices.js";
@@ -106,7 +106,7 @@ export class ProjectPage extends Page {
                             method: async () => this.#applyToSelected(async (selected) => {
                                 const selectedIds = selected.map(i => i.id);
 
-                                await session.disableProjects(selectedIds);
+                                await crmSession.disableProjects(selectedIds);
 
                                 for (const project of selected) {
                                     project.state = "Неактивен";
@@ -125,7 +125,7 @@ export class ProjectPage extends Page {
                             method: async () => this.#applyToSelected(async (selected) => {
                                 const selectedIds = selected.map(i => i.id);
 
-                                await session.enableProjects(selectedIds);
+                                await crmSession.enableProjects(selectedIds);
 
                                 for (const project of selected) {
                                     project.state = "Активен";
@@ -175,14 +175,14 @@ export class ProjectPage extends Page {
             //     method: () => this.loadProjectInfo(false),
             //     info: { loaderText: 'Выстраиваю хролонологии изменений' }
             // },
-            {
-                method: () => this.#loadLimitRate(false),
-                info: {loaderText: 'Анализирую лимиты'}
-            },
-            {
-                method: () => adviceSystem.waitForLoadComplete(),
-                info: {loaderText: 'Думаю над рекомендациями'}
-            },
+            // {
+            //     method: () => this.#loadLimitRate(false),
+            //     info: {loaderText: 'Анализирую лимиты'}
+            // },
+            // {
+            //     method: () => adviceSystem.waitForLoadComplete(),
+            //     info: {loaderText: 'Думаю над рекомендациями'}
+            // },
         ]);
     }
 
@@ -209,7 +209,7 @@ export class ProjectPage extends Page {
             btns.push(btn);
             this.#periodsEl.appendChild(periodBtn);
 
-            session.getClient().then(client => {
+            crmSession.getClient().then(client => {
                 const now = new Date();
                 const createdAt = new Date(Number(client.created_at) * 1000);
                 createdAt.setHours(0, 0, 0, 0);
@@ -315,15 +315,15 @@ export class ProjectPage extends Page {
         period.analytic = this.taskTracker.addTask({
             method: async () => {
                 const analytic = [];
-                analytic.push(...await session.getAnalytic(period.from, period.to, false));
+                analytic.push(...await crmSession.getAnalytic(period.from, period.to, false));
                 if (this.#deletedLoaded) {
-                    analytic.push(...await session.getAnalytic(period.from, period.to, true));
+                    analytic.push(...await crmSession.getAnalytic(period.from, period.to, true));
                 }
 
                 return analytic;
             },
             info: {loaderText: `Загружаю данные за ${period.name.toLowerCase()}`},
-            callback: analytic => this.#applyAnalyticToRows(analytic, index),
+            callback: analytic => this.#applyPeriodToGrid(analytic, index),
             parallel: true,
         });
     }
@@ -332,37 +332,32 @@ export class ProjectPage extends Page {
 
     }
 
-    #applyAnalyticToRows(analytic, periodIndex) {
+    async #applyPeriodToGrid(analytic, periodIndex) {
         const newRows = [];
-        analytic.forEach(project => {
+        const staticData = await crmSession.getStaticData();
+        for (const project of analytic.values()) {
             const existingRow = this.gridManager.rows.get(project.id);
             if (existingRow) {
-                existingRow.periodsData[periodIndex] = project.callCounts;
+                existingRow.periods[periodIndex] = project.callCounts;
             } else {
-                project.periodsData = [project.callCounts];
-                newRows.push(structuredClone(project));
+                const periodsData = [];
+                periodsData[periodIndex] = project.callCounts;
+                newRows.push({
+                    periods: periodsData,
+                    static: staticData.get(project.id),
+                });
             }
-        });
+        }
 
         const newRowsLen = newRows.length;
         this.gridManager.addRows(newRows);
         if (this.gridManager.rows.size !== newRowsLen)
             this.gridManager.refreshCells();
     }
-
-    #applyProjectInfoToRows(projectsInfo) {
-        for (const project of projectsInfo) {
-            if (this.gridManager.rows.has(project.id)) {
-                const rowData = this.gridManager.rows.get(project.id);
-
-                rowData.projectData = project;
-
-                rowData.today_numbers = project.phones_cnt_now;
-                rowData.duplicate_count = project.duplicate_cnt;
-                rowData.today_duplicate_count = project.duplicate_cnt_now;
-                rowData.send_status = project.state;
-                rowData.regions_reverse = project.regions_reverse;
-            }
+    #applyFullStaticDataToGrid(projectsInfo) {
+        for (const staticData of projectsInfo.values()) {
+            const rowData = this.gridManager.rows.get(staticData.id);
+            rowData.static = staticData;
         }
 
         this.gridManager.refreshCells();
@@ -377,7 +372,7 @@ export class ProjectPage extends Page {
         sevenDaysAgo.setDate(now.getDate() - 6);
 
         const limitTouches = new Map();
-        for await (const analytic of session.forEachDayAnalytic(sevenDaysAgo, now, deleted)) {
+        for await (const analytic of crmSession.forEachDayAnalytic(sevenDaysAgo, now, deleted)) {
             analytic.forEach(({id, callCounts}) => {
                 const project = rows.get(id);
                 if (project && callCounts.processed >= project.limit) {
@@ -395,10 +390,10 @@ export class ProjectPage extends Page {
             }
         }
 
-        const managerInfo = await session.getManagerInfo();
+        const managerInfo = await crmSession.getManagerInfo();
         if (managerInfo?.role === "Manager") {
             try {
-                const limitPotential = await session.getLimitPotential(now);
+                const limitPotential = await crmSession.getLimitPotential(now);
                 limitPotential.forEach(({id, cnt_without_limit_filter}) => {
                     const project = rows.get(id);
                     if (project) {
@@ -418,24 +413,24 @@ export class ProjectPage extends Page {
             const period = this.#periods[i];
 
             period.analytic = this.taskTracker.addTask({
-                method: async () => await session.getAnalytic(period.from, period.to, deleted),
+                method: async () => await crmSession.getAnalytic(period.from, period.to, deleted),
                 info: {loaderText: `Загружаю данные за ${period.name.toLowerCase()}`},
-                callback: analytic => this.#applyAnalyticToRows(analytic, i),
+                callback: analytic => this.#applyPeriodToGrid(analytic, i),
             });
         }
     }
 
     async loadProjectInfo(deleted) {
-        const projectInfo = await session.getProjects(deleted);
-        this.#applyProjectInfoToRows(projectInfo);
+        const projectInfo = await crmSession.loadFullStaticData(deleted);
+        this.#applyFullStaticDataToGrid(projectInfo);
     }
 
     async getUsedStatuses() {
-        const client = await session.getClient();
+        const client = await crmSession.getClient();
 
         const now = new Date();
         const createdAt = new Date(Number(client.created_at) * 1000);
-        const allTimeAnalytic = await session.getAnalytic(createdAt, now, false);
+        const allTimeAnalytic = await crmSession.getAnalytic(createdAt, now, false);
 
         const usedStatuses = new Map();
         for (const project of allTimeAnalytic) {

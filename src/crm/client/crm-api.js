@@ -1,5 +1,5 @@
 import {toLocalISOString} from "../utils/helpers.js";
-import session from "./session.js";
+import crmSession from "./crm-session.js";
 
 const baseProjectBody = {
     "project_ids": [],
@@ -43,24 +43,6 @@ const baseProjectBody = {
     "is_crm": 0,
     "category": null,
     "source": null,
-    "types": [
-        { "id": "hosts", "name": "Сайты" },
-        { "id": "calls", "name": "Звонки" },
-        { "id": "sms", "name": "СМС" },
-        { "id": "hosts_retro", "name": "Ретро сайты" },
-        { "id": "calls_retro", "name": "Ретро звонки" },
-        { "id": "hosthost", "name": "Пересечения Сайт/Сайт" },
-        { "id": "hostsms", "name": "Пересечения Сайт/СМС" }
-    ],
-    "types1": [
-        { "id": 0, "name": "Посетитель" },
-        { "id": 1, "name": "Сделка" }
-    ],
-    "complex": {
-        "hosts": { "content": "", "cnt": 0 },
-        "calls": { "content": "", "cnt": 0 },
-        "sms": { "content": "", "regular_value": "", "cnt": 0 }
-    }
 }
 
 class CrmApi {
@@ -126,9 +108,13 @@ class CrmApi {
         const data = await this.fetch(url);
         const {projects} = JSON.parse(data);
 
-        return projects;
+        const result = new Map();
+        for (const project of projects) {
+            result.set(project.id, project);
+        }
+        return result;
     }
-    async getAnalytic(sliceName) {
+    async getAnalytic(sliceName, extractStaticData = false) {
         const url = `/admin/visit/rt-stat?${sliceName}`;
         const html = await this.fetch(url);
 
@@ -143,14 +129,14 @@ class CrmApi {
             this.#worker.onerror = function(error) {
                 reject(error);
             };
-            this.#worker.postMessage({ key: sliceName, analyticHtml: html });
+            this.#worker.postMessage({ key: sliceName, analyticHtml: html, extractStaticData: extractStaticData });
         });
     }
 
     async getClient() {
         if (!this.#clientInfo) {
             const now = new Date();
-            await this.getAnalytic(session.getAnalyticSliceName(now, now, false));
+            await this.getAnalytic(crmSession.getAnalyticSliceName(now, now, false));
         }
 
         return this.#clientInfo;

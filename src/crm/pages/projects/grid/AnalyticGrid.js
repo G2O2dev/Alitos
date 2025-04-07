@@ -6,7 +6,6 @@ import {
     range, replaceDomainsWithLinks,
 } from "../../../utils/helpers.js";
 import {AG_GRID_LOCALE_RU} from "../../../../lib/ag-grid-ru.js";
-import crmApi from "../../../client/crm-api.js";
 import {aggFuncs} from "./helpers/aggFuncs.js";
 import {dateFormatter, weekdaysFormatter} from "./helpers/formatters.js";
 import {ExpandAllHeader} from "./render/ExpandAllHeader.js";
@@ -52,7 +51,7 @@ export class AnalyticGrid {
 
     set rows(values) {
         this._rows.clear();
-        values.forEach(row => this._rows.set(row.id, row));
+        values.forEach(row => this._rows.set(row.static.id, row));
     }
 
     #buildGridOptions(periods) {
@@ -83,7 +82,7 @@ export class AnalyticGrid {
 
         const smartNameRenderer = (params) => {
             if (params.data) {
-                return createCellHtml(params.data.smartName.name, params.data.smartName.tag, params.data.operator);
+                return createCellHtml(params.data.static.smartName.name, params.data.static.smartName.tag, params.data.static.operator);
             }
             if (params.node.footer) return;
 
@@ -111,7 +110,7 @@ export class AnalyticGrid {
         const allEqual = (arr) => arr.every(val => val === arr[0]);
 
         const handleMixedValues = (childNodes) => {
-            const allDomains = childNodes.flatMap(child => child.data.smartName.domains || []);
+            const allDomains = childNodes.flatMap(child => child.data.static.smartName.domains || []);
             const uniqueDomains = [...new Set(allDomains)];
             const displayed = uniqueDomains.slice(0, 5).join(', ');
             return createCellHtml(replaceDomainsWithLinks(displayed, true));
@@ -120,18 +119,18 @@ export class AnalyticGrid {
         let basicColumns = [
             {
                 headerName: 'Id',
-                field: 'id',
+                field: 'static.id',
                 minWidth: 90,
                 maxWidth: 90,
                 resizable: false,
                 filter: false,
-                tooltipValueGetter: params => this.#getTooltip(params),
+                // tooltipValueGetter: params => this.#getTooltip(params),
                 suppressColumnsToolPanel: true,
                 suppressMovable: true,
             },
             {
                 headerName: 'Оператор',
-                field: 'operator',
+                field: 'static.operator',
                 minWidth: 44,
                 maxWidth: 44,
                 resizable: false,
@@ -142,8 +141,8 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Умное имя',
-                field: 'smartName',
-                minWidth: 120,
+                field: 'static.smartName',
+                minWidth: 220,
                 filter: false,
                 headerTooltip: 'Умное имя имеет ряд улучшений над названием и тегом:\n- Компилирует название и тег в формате: Название (Тег).\n- В конце ячейки отображается реальный оператор.\n- При клике на домен, он будет открыт\n- Если тег повторяет название он не будет отображён.',
                 cellRenderer: smartNameRenderer,
@@ -153,7 +152,7 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Название',
-                field: 'name',
+                field: 'static.name',
                 minWidth: 120,
                 filter: false,
                 aggFunc: "name",
@@ -162,7 +161,7 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Тег',
-                field: 'tag',
+                field: 'static.tag',
                 minWidth: 70,
                 filter: false,
                 resizable: true,
@@ -173,7 +172,7 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Статус',
-                field: 'state',
+                field: 'static.state',
                 minWidth: 120,
                 maxWidth: 120,
                 resizable: false,
@@ -184,7 +183,7 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Тип',
-                field: 'project_type',
+                field: 'static.project_type',
                 minWidth: 120,
                 maxWidth: 120,
                 resizable: false,
@@ -198,7 +197,7 @@ export class AnalyticGrid {
         const periodsColumns = this.#buildPeriodColumns(0);
 
         const limitCellClass = params => {
-            switch (params.data?.limitState) {
+            switch (params.data?.static.limitState) {
                 case "warning":
                     return "project-limit-warning";
                 case "hint":
@@ -209,16 +208,16 @@ export class AnalyticGrid {
         const limitCellRenderer = (params) => {
             let potential;
             if (params.data) {
-                potential = params.data.limitPotential;
+                potential = params.data.static.limitPotential;
             }
 
             return `${params.value}${potential === undefined ? '' : ` <span class="limitPotential">${potential}</span>`}`;
         }
 
         const regionCellClass = (params) => {
-            if (!params.data?.region_limit) return;
+            if (!params.data?.static.region_limit) return;
 
-            return params.data.regions_reverse ? "project-region-reverse" : "project-region";
+            return params.data.static.regions_reverse ? "project-region-reverse" : "project-region";
         }
 
         // Скрытые колонки
@@ -226,7 +225,7 @@ export class AnalyticGrid {
             // this.#createNumberColumn('Номеров сегодня', 'today_numbers', { defaultOption: 'greaterThan' }, 'Номеров получено сегодня', null, null, true),
             {
                 headerName: 'Дни получения',
-                field: 'workdays',
+                field: 'static.workdays',
                 minWidth: 160,
                 maxWidth: 180,
                 resizable: false,
@@ -239,7 +238,7 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Регион',
-                field: 'region_limit',
+                field: 'static.region_limit',
                 minWidth: 160,
                 maxWidth: 180,
                 resizable: false,
@@ -252,7 +251,7 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Добавлен',
-                field: 'creation_date',
+                field: 'static.creation_date',
                 minWidth: 110,
                 maxWidth: 110,
                 resizable: false,
@@ -264,7 +263,7 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Изменён',
-                field: 'edit_date',
+                field: 'static.edit_date',
                 minWidth: 110,
                 maxWidth: 110,
                 resizable: false,
@@ -276,7 +275,7 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Удалён',
-                field: 'delete_date',
+                field: 'static.delete_date',
                 minWidth: 110,
                 maxWidth: 110,
                 resizable: false,
@@ -286,12 +285,12 @@ export class AnalyticGrid {
                 valueFormatter: p => dateFormatter(p),
                 aggFunc: "sameDate",
             },
-            this.#createNumberColumn('Дублей всего', 'duplicate_count', {defaultOption: 'greaterThan'}, null, null, null, true),
-            this.#createNumberColumn('Дублей сегодня', 'today_duplicate_count', {defaultOption: 'greaterThan'}, null, null, null, true),
+            this.#createNumberColumn('Дублей всего', 'static.duplicate_cnt', {defaultOption: 'greaterThan'}, null, null, null, true),
+            this.#createNumberColumn('Дублей сегодня', 'static.duplicate_cnt_now', {defaultOption: 'greaterThan'}, null, null, null, true),
 
             {
                 headerName: 'Источник',
-                field: 'sources',
+                field: 'static.sources',
 
                 hide: true,
                 suppressColumnsToolPanel: true,
@@ -299,7 +298,7 @@ export class AnalyticGrid {
         ];
 
         const afterPeriodsColumns = [
-            this.#createNumberColumn('Лимит', 'limit', {
+            this.#createNumberColumn('Лимит', 'static.limit', {
                 defaultOption: 'greaterThan',
                 filterOptions: ['equals', 'notEqual', 'greaterThan', 'lessThan', 'inRange'],
             }, 'Лимит проекта. Если ячейка:\nГолубая — проект коснулся лимита 1 или 2 раза за последние 7 дней.\nЗелёная — проект коснулся лимита более 2 раз за последние 7 дней.', limitCellRenderer, limitCellClass),
@@ -356,7 +355,7 @@ export class AnalyticGrid {
 
             isExternalFilterPresent: () => true,
             doesExternalFilterPass: node => this.#filter(node),
-            getRowId: params => typeof params.data === 'string' ? params.data : params.data.id,
+            getRowId: params => typeof params.data === 'string' ? params.data : params.data.static.id,
             cellSelection: {
                 enableHeaderHighlight: true,
             },
@@ -546,8 +545,8 @@ export class AnalyticGrid {
         this.gridElement.addEventListener('keydown', (e) => {
             if (e.key === 'Delete') {
                 const selectedCells = this.gridApi.getCellRanges()[0];
-                if (selectedCells && selectedCells.startColumn.colId === "id") {
-                    const toRemove = this.getSelectedRows().map(row => row.data.id);
+                if (selectedCells && selectedCells.startColumn.colId === "static.id") {
+                    const toRemove = this.getSelectedRows().map(row => row.data.static.id);
                     this.gridApi.clearCellSelection();
                     this.gridApi.clearFocusedCell();
                     this.#hideCells(toRemove);
@@ -569,26 +568,26 @@ export class AnalyticGrid {
             if (!p.eGridCell.dataset.clickListenerAdded) {
                 p.eGridCell.dataset.clickListenerAdded = "true";
                 p.eGridCell.addEventListener("click", () => {
-                    p.data.sources.forEach(d => window.open("https://" + d, '_blank').focus());
+                    p.data.static.sources.forEach(d => window.open("https://" + d, '_blank').focus());
                 });
             }
         }
 
-        return p.data?.sources
-            ? `${p.value} <span class="sources_count">${p.data.sources.length}</span>`
+        return p.data?.static.sources
+            ? `${p.value} <span class="sources_count">${p.data.static.sources.length}</span>`
             : p.value;
     }
 
     #getCellClassByStatus(data) {
-        if (!data || data.send_status === null) return '';
-        return data.send_status === 0 ? 'project-limited-completely' : data.send_status > 0 ? 'project-limited' : '';
+        if (!data || data.static.send_status === null) return '';
+        return data.static.send_status === 0 ? 'project-limited-completely' : data.static.send_status > 0 ? 'project-limited' : '';
     }
 
     #buildPeriodColumns(periodDataIndex, periodName = '', visibleColumns = ['processed', 'leads', 'missed', 'declined']) {
         const periodValueGetter = (params) => {
             const periodId = params.colDef.context.periodId;
             const field = params.colDef.field;
-            const periodData = params.data?.periodsData[periodId];
+            const periodData = params.data?.periods[periodId];
             if (!periodData) return 0;
             const fieldData = periodData[field];
             return (fieldData.value !== undefined) ? (this.isPercentSorting ? fieldData.percent : fieldData.value) : fieldData;
@@ -609,7 +608,7 @@ export class AnalyticGrid {
                     percent = calcPercent(total, value);
                 }
             } else {
-                const periodData = params.data.periodsData[periodId];
+                const periodData = params.data.periods[periodId];
                 if (!periodData) return 0;
                 const fieldData = periodData[field];
                 if (!showPercent) return fieldData.value !== undefined ? fieldData.value : fieldData;
@@ -684,8 +683,8 @@ export class AnalyticGrid {
                                 aPercent = calcPercent(aProcessed, aValue);
                                 bPercent = calcPercent(bProcessed, bValue);
                             } else {
-                                const aPeriodData = aNode.data.periodsData[periodId];
-                                const bPeriodData = bNode.data.periodsData[periodId];
+                                const aPeriodData = aNode.data.periods[periodId];
+                                const bPeriodData = bNode.data.periods[periodId];
                                 if (!aPeriodData || !bPeriodData) continue;
                                 const aData = aPeriodData[field];
                                 const bData = bPeriodData[field];
@@ -780,7 +779,7 @@ export class AnalyticGrid {
         const {data} = node;
 
         // Пропускаем удалённые элементы, если они не должны отображаться
-        if (!this.deletedShown && data.delete_date !== null) return false;
+        if (!this.deletedShown && data.static.delete_date !== null) return false;
 
         // Приводим значение поиска к нужному виду
         const trimmedSearch = this.searchValue && this.searchValue.trim();
@@ -802,21 +801,21 @@ export class AnalyticGrid {
         }
 
         for (const {lowerCase, isNumberSearch, normalizedNumber} of this._searchCache.tokens) {
-            if (data.id.includes(lowerCase)) return true;
+            if (data.static.id.includes(lowerCase)) return true;
 
-            if (isNumberSearch && findStringsWithPhone([data.tag, data.name], normalizedNumber).length > 0) {
+            if (isNumberSearch && findStringsWithPhone([data.static.tag, data.static.name], normalizedNumber).length > 0) {
                 return true;
             }
 
-            if ((data.tag && data.tag.toLowerCase().includes(lowerCase)) ||
-                (data.name && data.name.toLowerCase().includes(lowerCase))) {
+            if ((data.static.tag && data.static.tag.toLowerCase().includes(lowerCase)) ||
+                (data.static.name && data.static.name.toLowerCase().includes(lowerCase))) {
                 return true;
             }
 
-            switch (data.project_type) {
+            switch (data.static.project_type) {
                 case "Звонки":
                     if (isNumberSearch) {
-                        for (const number of data.sources) {
+                        for (const number of data.static.sources) {
                             if (normalizePhoneNumber(number).includes(normalizedNumber)) {
                                 return true;
                             }
@@ -825,7 +824,7 @@ export class AnalyticGrid {
                     break;
                 case "Сайты (П)":
                 case "Сайты":
-                    for (const domain of data.sources) {
+                    for (const domain of data.static.sources) {
                         if (domain.toLowerCase().includes(lowerCase)) {
                             return true;
                         }
@@ -853,7 +852,7 @@ export class AnalyticGrid {
 
     //#region Rows/Cells
     addRows(rows) {
-        rows.forEach(row => this._rows.set(row.id, row));
+        rows.forEach(row => this._rows.set(row.static.id, row));
         this.gridApi?.applyTransaction({add: rows});
     }
 
@@ -911,7 +910,7 @@ export class AnalyticGrid {
     }
 
     copySourcesOfSelected() {
-        const toCopy = this.getSelectedRows().map(row => row.data.sources);
+        const toCopy = this.getSelectedRows().map(row => row.data.static.sources);
         navigator.clipboard.writeText(toCopy.toString());
     }
 

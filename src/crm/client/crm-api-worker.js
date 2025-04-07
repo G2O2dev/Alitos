@@ -144,7 +144,49 @@ function extractDomainsFromNameAndTag(name, tag) {
     return Array.from(domains);
 }
 
-function parseAnalytic(analyticHtml) {
+function formatAnalyticWorkdays(workdays) {
+    if (typeof workdays !== 'string') return [];
+    return [...workdays].filter(c => '1234567'.includes(c));
+}
+
+function parseDynamicData(analytic) {
+    const result = new Map();
+    for (const project of analytic) {
+        result.set(project.id, {
+            id: project.id,
+            callCounts: countCalls(project),
+        });
+    }
+    return result;
+}
+function parseStaticData(analytic) {
+    const result = new Map();
+    for (const project of analytic) {
+        const deleted = project.deleted_at !== null;
+        const encryptedOp = encryptOperator(project.src);
+        const smartNameParts = processNameAndTag(project.name, project.tag);
+
+        result.set(project.id, {
+            id: project.id,
+            tag: project.tag,
+            name: project.name,
+            smartName: smartNameParts,
+            state: deleted ? "Удалён" : project.status === 1 ? "Активен" : "Неактивен",
+            project_type: assocType(project.type),
+            operator: encryptedOp,
+            limit: Number(project.lim),
+            workdays: formatAnalyticWorkdays(project.workdays),
+            regions: project.region_limit,
+            creation_date: new Date(project.created_at),
+            edit_date: new Date(project.updated_at),
+            delete_date: deleted ? new Date(project.deleted_at) : null,
+            sources: parseSources(project.content),
+        });
+    }
+    return result;
+}
+
+function parseAnalytic(analyticHtml, loadStaticData) {
     const match = analyticHtml.match(/projects:\s*(\[[\s\S]*?\])/);
     if (!match) {
         console.error("Analytic data not found", analyticHtml);
@@ -153,38 +195,19 @@ function parseAnalytic(analyticHtml) {
 
     const analytic = JSON.parse(match[1]);
 
-    return analytic.map(project => {
-        const callCounts = countCalls(project);
-        const deleted = project.deleted_at !== null;
-        const encryptedOp = encryptOperator(project.src);
-
-        const smartNameParts = processNameAndTag(project.name, project.tag);
-
-        return {
-            id: project.id,
-            tag: project.tag,
-            name: project.name,
-
-            smartName: smartNameParts,
-
-            state: deleted ? "Удалён" : project.status === 1 ? "Активен" : "Неактивен",
-            project_type: assocType(project.type),
-            operator: encryptedOp,
-            limit: Number(project.lim),
-            workdays: project.workdays,
-            region_limit: project.regions,
-            creation_date: new Date(project.created_at),
-            edit_date: new Date(project.updated_at),
-            delete_date: deleted ? new Date(project.deleted_at) : null,
-            sources: parseSources(project.content),
-            callCounts: callCounts,
-        };
-    });
+    let staticData;
+    if (loadStaticData) {
+        staticData = parseStaticData(analytic);
+    }
+    return {
+        staticData: staticData,
+        analytic: parseDynamicData(analytic),
+    }
 }
 
 self.onmessage = function(e) {
-    const { key, analyticHtml } = e.data;
-    const result = parseAnalytic(analyticHtml);
+    const { key, analyticHtml, extractStaticData } = e.data;
+    const result = parseAnalytic(analyticHtml, extractStaticData);
     self.postMessage({
         type: 'analyticsResponse',
         key: key,

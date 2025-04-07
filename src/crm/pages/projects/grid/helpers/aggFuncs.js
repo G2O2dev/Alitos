@@ -9,7 +9,7 @@ export const aggFuncs = {
                 if (child.childrenAfterFilter) {
                     countChildLeaf(child);
                 } else {
-                    switch (child.data.state) {
+                    switch (child.data.static.state) {
                         case "Активен":
                             active++;
                             break;
@@ -62,7 +62,7 @@ export const aggFuncs = {
         const countChildLeaf = (rowNode) => {
             for (const child of rowNode.childrenAfterFilter || []) {
                 if (child.data) {
-                    const periodData = child.data.periodsData[periodId];
+                    const periodData = child.data.periods[periodId];
                     if (periodData == null) continue;
                     const value = periodData[field];
                     sum += value.value === undefined ? value : value.value;

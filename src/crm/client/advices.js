@@ -1,4 +1,4 @@
-import session from './session.js';
+import crmSession from './crm-session.js';
 
 class AdviceSystem {
     #advices = [];
@@ -60,7 +60,7 @@ class AdviceSystem {
     }
 
     async #handleAnalyticsRequest(sliceName) {
-        const analytics = await session.getAnalyticBySliceName(sliceName);
+        const analytics = await crmSession.getAnalyticBySliceName(sliceName);
         this.#worker.postMessage({
             type: 'analyticsResponse',
             data: { sliceName, analytics }
@@ -68,14 +68,14 @@ class AdviceSystem {
     }
 
     async #handleProjectsConfigRequest() {
-        const config = await session.getProjectsConfig();
+        const config = await crmSession.getProjectsConfig();
         this.#worker.postMessage({
             type: 'projectsConfigResponse',
             data: { config }
         });
     }
     async #handleClientInfoRequest() {
-        const info = await session.getClient();
+        const info = await crmSession.getClient();
         this.#worker.postMessage({
             type: 'clientInfoResponse',
             data: { info }
