@@ -120,7 +120,7 @@ class CrmSession {
     async getClient() {
         return this.#cache.get(
             CrmSession.CACHE_KEY_CLIENT_INFO,
-            () => crmApi.getClient(),
+            () => crmApi.clientInfoPromise,
         );
     }
     async getProjectsConfig() {

@@ -1,4 +1,4 @@
-import {toLocalISOString} from "../utils/helpers.js";
+import {createDeferred, toLocalISOString} from "../utils/helpers.js";
 import crmSession from "./crm-session.js";
 
 const baseProjectBody = {
@@ -46,8 +46,12 @@ const baseProjectBody = {
 }
 
 class CrmApi {
-    #clientInfo;
+    #clientInfoPromise;
     #worker = new Worker(chrome.runtime.getURL('src/crm/client/crm-api-worker.js'));
+    #clientInfoDeferred = createDeferred();
+    get clientInfoPromise() {
+        return this.#clientInfoDeferred.promise;
+    }
 
     async fetch(url, params) {
         return await chrome.runtime.sendMessage({action: "fetch", url, params});
@@ -123,7 +127,15 @@ class CrmApi {
         const url = `/admin/visit/rt-stat?${sliceName}`;
         const html = await this.fetch(url);
 
-        this.#clientInfo = this.#parseClient(html);
+        if (!this.#clientInfoDeferred.resolved) {
+            try {
+                const clientInfo = await this.#parseClient(html);
+                this.#clientInfoDeferred.resolve(clientInfo);
+                this.#clientInfoDeferred.resolved = true;
+            } catch (error) {
+                this.#clientInfoDeferred.reject(error);
+            }
+        }
 
         return new Promise((resolve, reject) => {
             this.#worker.onmessage = function(e) {
@@ -134,18 +146,21 @@ class CrmApi {
             this.#worker.onerror = function(error) {
                 reject(error);
             };
-            this.#worker.postMessage({ type: 'analyticRequest', key: sliceName, analyticHtml: html, extractStaticData: extractStaticData });
+            this.#worker.postMessage({
+                type: 'analyticRequest',
+                key: sliceName,
+                analyticHtml: html,
+                extractStaticData: extractStaticData
+            });
         });
     }
 
-    async getClient() {
-        if (!this.#clientInfo) {
-            const now = new Date();
-            await this.getAnalytic(crmSession.getAnalyticSliceName(now, now, false));
-        }
-
-        return this.#clientInfo;
+    async #parseAndResolveClient(html) {
+        const clientInfo = await this.#parseClient(html);
+        this.#clientInfoDeferred.resolve(clientInfo);
+        return clientInfo;
     }
+
     async getProjectsConfig() {
         const html = await this.fetch("/admin/visit/rt");
 

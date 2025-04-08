@@ -59,6 +59,15 @@ export function percentageDiff(base, compared) {
     return ((compared - base) / base) * 100;
 }
 
+export function createDeferred() {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject, resolved: false };
+}
+
 export function pluralize(number, base, suffixOne, suffixFew, suffixMany) {
     const pluralRules = new Intl.PluralRules("ru-RU");
     const rule = pluralRules.select(number);
