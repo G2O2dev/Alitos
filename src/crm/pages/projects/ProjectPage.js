@@ -397,7 +397,7 @@ export class ProjectPage extends Page {
                 limitPotential.forEach(({id, cnt_without_limit_filter}) => {
                     const project = rows.get(id);
                     if (project) {
-                        project.limitPotential = cnt_without_limit_filter;
+                        project.static.limitPotential = cnt_without_limit_filter;
                     }
                 });
             } catch (e) {
