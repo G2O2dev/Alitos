@@ -12,9 +12,8 @@ class BigdataSession {
     }
 
     async getLimitPotential(date, userId) {
-        const actualUserId = userId ?? (await this.getClient()).user_id;
         const formatedDate = crmApi.formatDate(date);
-        const query = `date=${formatedDate}&user_id=${actualUserId}`;
+        const query = `date=${formatedDate}&user_id=${userId}`;
 
         return this.#cache.get(
             `rtk_analytic_${query}`,

@@ -113,6 +113,16 @@ class CrmSession {
 
         return await bigdataSession.getLimitPotential(date, actualUserId);
     }
+    async* forEachDayLimitPotential(startDate, endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const actualUserId = (await this.getClient()).user_id;
+
+        while (start <= end) {
+            yield await bigdataSession.getLimitPotential(start, actualUserId);
+            start.setDate(start.getDate() + 1);
+        }
+    }
     async getAnalytic(from, to, deleted) {
         return await this.#getAnalytic(from, to, deleted);
     }

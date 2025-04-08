@@ -367,12 +367,18 @@ export class ProjectPage extends Page {
         const rows = this.gridManager.rows;
         if (!rows.size) return;
 
-        const now = new Date();
-        const sevenDaysAgo = new Date(now);
-        sevenDaysAgo.setDate(now.getDate() - 6);
+        const current = new Date();
+        const today = new Date(current);
+        // Если менее 7 утра, то берём за день назад так как не вся аналитика и данные пришли
+        if (current.getHours() < 7) {
+            today.setDate(today.getDate() - 1);
+        }
+
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - 6);
 
         const limitTouches = new Map();
-        for await (const analytic of crmSession.forEachDayAnalytic(sevenDaysAgo, now, deleted)) {
+        for await (const analytic of crmSession.forEachDayAnalytic(startDate, today, deleted)) {
             for (let [id, callCounts] of analytic) {
                 const project = rows.get(id);
                 if (project && callCounts.processed >= project.static.limit) {
@@ -393,13 +399,14 @@ export class ProjectPage extends Page {
         const managerInfo = await crmSession.getManagerInfo();
         if (managerInfo?.role === "Manager") {
             try {
-                const limitPotential = await crmSession.getLimitPotential(now);
-                limitPotential.forEach(({id, cnt_without_limit_filter}) => {
-                    const project = rows.get(id);
-                    if (project) {
-                        project.static.limitPotential = cnt_without_limit_filter;
-                    }
-                });
+                for await (const limitPotential of crmSession.forEachDayLimitPotential(startDate, today)) {
+                    limitPotential.forEach(({id, cnt_without_limit_filter}) => {
+                        const project = rows.get(id);
+                        if (project && cnt_without_limit_filter && (!project.static.limitPotential || project.static.limitPotential < cnt_without_limit_filter)) {
+                            project.static.limitPotential = cnt_without_limit_filter;
+                        }
+                    });
+                }
             } catch (e) {
                 console.error(e);
             }
