@@ -9,15 +9,17 @@ export const aggFuncs = {
                 if (child.childrenAfterFilter) {
                     countChildLeaf(child);
                 } else {
-                    switch (child.data.static.state) {
-                        case "Активен":
+                    if (child.data.static.delete_date) {
+                        deleted++;
+                        continue;
+                    }
+
+                    switch (child.data.static.status) {
+                        case 1:
                             active++;
                             break;
-                        case "Неактивен":
+                        case 0:
                             inactive++;
-                            break;
-                        case "Удалён":
-                            deleted++;
                             break;
                     }
                 }

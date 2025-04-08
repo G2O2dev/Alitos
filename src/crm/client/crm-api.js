@@ -106,13 +106,18 @@ class CrmApi {
     async getProjects(deleted) {
         const url = `/admin/visit/rt-projects-load?&src=none${deleted ? "&type=deleted" : ""}`;
         const data = await this.fetch(url);
-        const {projects} = JSON.parse(data);
 
-        const result = new Map();
-        for (const project of projects) {
-            result.set(project.id, project);
-        }
-        return result;
+        return new Promise((resolve, reject) => {
+            this.#worker.onmessage = function(e) {
+                if (e.data.type === 'projectsResponse' && e.data.isDeleted === deleted) {
+                    resolve(e.data.data);
+                }
+            };
+            this.#worker.onerror = function(error) {
+                reject(error);
+            };
+            this.#worker.postMessage({ type: 'projectsRequest', projectsData: data, isDeleted: deleted });
+        });
     }
     async getAnalytic(sliceName, extractStaticData = false) {
         const url = `/admin/visit/rt-stat?${sliceName}`;
@@ -129,7 +134,7 @@ class CrmApi {
             this.#worker.onerror = function(error) {
                 reject(error);
             };
-            this.#worker.postMessage({ key: sliceName, analyticHtml: html, extractStaticData: extractStaticData });
+            this.#worker.postMessage({ type: 'analyticRequest', key: sliceName, analyticHtml: html, extractStaticData: extractStaticData });
         });
     }
 

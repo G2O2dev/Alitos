@@ -98,44 +98,44 @@ export class ProjectPage extends Page {
                 //         placeholder: "Новый тег"
                 //     },
                 // },
-                {
-                    label: "Отключить",
-                    value: "disable",
-                    callback: async () => {
-                        this.taskTracker.addTask({
-                            method: async () => this.#applyToSelected(async (selected) => {
-                                const selectedIds = selected.map(i => i.id);
-
-                                await crmSession.disableProjects(selectedIds);
-
-                                for (const project of selected) {
-                                    project.state = "Неактивен";
-                                }
-                            }),
-                            info: {loaderText: 'Отключаю проекты'},
-                            parallel: true
-                        });
-                    }
-                },
-                {
-                    label: "Включить",
-                    value: "enable",
-                    callback: async () => {
-                        this.taskTracker.addTask({
-                            method: async () => this.#applyToSelected(async (selected) => {
-                                const selectedIds = selected.map(i => i.id);
-
-                                await crmSession.enableProjects(selectedIds);
-
-                                for (const project of selected) {
-                                    project.state = "Активен";
-                                }
-                            }),
-                            info: {loaderText: 'Включаю проекты'},
-                            parallel: true
-                        });
-                    }
-                }
+                // {
+                //     label: "Отключить",
+                //     value: "disable",
+                //     callback: async () => {
+                //         this.taskTracker.addTask({
+                //             method: async () => this.#applyToSelected(async (selected) => {
+                //                 const selectedIds = selected.map(i => i.id);
+                //
+                //                 await crmSession.disableProjects(selectedIds);
+                //
+                //                 for (const project of selected) {
+                //                     project.status = 0;
+                //                 }
+                //             }),
+                //             info: {loaderText: 'Отключаю проекты'},
+                //             parallel: true
+                //         });
+                //     }
+                // },
+                // {
+                //     label: "Включить",
+                //     value: "enable",
+                //     callback: async () => {
+                //         this.taskTracker.addTask({
+                //             method: async () => this.#applyToSelected(async (selected) => {
+                //                 const selectedIds = selected.map(i => i.id);
+                //
+                //                 await crmSession.enableProjects(selectedIds);
+                //
+                //                 for (const project of selected) {
+                //                     project.static.status = 1;
+                //                 }
+                //             }),
+                //             info: {loaderText: 'Включаю проекты'},
+                //             parallel: true
+                //         });
+                //     }
+                // }
             ]
         });
 
@@ -175,10 +175,10 @@ export class ProjectPage extends Page {
             //     method: () => this.loadProjectInfo(false),
             //     info: { loaderText: 'Выстраиваю хролонологии изменений' }
             // },
-            // {
-            //     method: () => this.#loadLimitRate(false),
-            //     info: {loaderText: 'Анализирую лимиты'}
-            // },
+            {
+                method: () => this.#loadLimitRate(false),
+                info: {loaderText: 'Анализирую лимиты'}
+            },
             // {
             //     method: () => adviceSystem.waitForLoadComplete(),
             //     info: {loaderText: 'Думаю над рекомендациями'}
@@ -335,16 +335,16 @@ export class ProjectPage extends Page {
     async #applyPeriodToGrid(analytic, periodIndex) {
         const newRows = [];
         const staticData = await crmSession.getStaticData();
-        for (const project of analytic.values()) {
-            const existingRow = this.gridManager.rows.get(project.id);
+        for (const [pId, periodData] of analytic) {
+            const existingRow = this.gridManager.rows.get(pId);
             if (existingRow) {
-                existingRow.periods[periodIndex] = project.callCounts;
+                existingRow.periods[periodIndex] = periodData;
             } else {
                 const periodsData = [];
-                periodsData[periodIndex] = project.callCounts;
+                periodsData[periodIndex] = periodData;
                 newRows.push({
                     periods: periodsData,
-                    static: staticData.get(project.id),
+                    static: staticData.get(pId),
                 });
             }
         }
@@ -373,20 +373,20 @@ export class ProjectPage extends Page {
 
         const limitTouches = new Map();
         for await (const analytic of crmSession.forEachDayAnalytic(sevenDaysAgo, now, deleted)) {
-            analytic.forEach(({id, callCounts}) => {
+            for (let [id, callCounts] of analytic) {
                 const project = rows.get(id);
-                if (project && callCounts.processed >= project.limit) {
+                if (project && callCounts.processed >= project.static.limit) {
                     limitTouches.set(id, (limitTouches.get(id) || 0) + 1);
                 }
-            });
+            }
         }
 
         for (let touch of limitTouches) {
             const project = rows.get(touch[0]);
             if (touch[1] >= 3) {
-                project.limitState = "warning";
+                project.static.limitState = "warning";
             } else if (touch[1] > 0) {
-                project.limitState = "hint";
+                project.static.limitState = "hint";
             }
         }
 
@@ -409,19 +409,24 @@ export class ProjectPage extends Page {
     }
 
     async loadAnalytics(deleted) {
+        let haveNewData = false;
+
         for (let i = 0; i < this.#periods.length; i++) {
             const period = this.#periods[i];
 
-            period.analytic = this.taskTracker.addTask({
-                method: async () => await crmSession.getAnalytic(period.from, period.to, deleted),
-                info: {loaderText: `Загружаю данные за ${period.name.toLowerCase()}`},
-                callback: analytic => this.#applyPeriodToGrid(analytic, i),
-            });
+            const analytic = await crmSession.getAnalytic(period.from, period.to, deleted);
+            if (analytic.size) {
+                await this.#applyPeriodToGrid(analytic, i);
+                haveNewData = true;
+            }
         }
+
+        return haveNewData;
     }
 
     async loadProjectInfo(deleted) {
-        const projectInfo = await crmSession.loadFullStaticData(deleted);
+        await crmSession.loadFullStaticData(deleted);
+        const projectInfo = await crmSession.getStaticData();
         this.#applyFullStaticDataToGrid(projectInfo);
     }
 
@@ -433,11 +438,11 @@ export class ProjectPage extends Page {
         const allTimeAnalytic = await crmSession.getAnalytic(createdAt, now, false);
 
         const usedStatuses = new Map();
-        for (const project of allTimeAnalytic) {
-            for (const key in project.callCounts) {
-                const value = project.callCounts[key]?.value;
+        for (const callCounts of allTimeAnalytic.values()) {
+            for (const status in callCounts) {
+                const value = callCounts[status]?.value;
                 if (value !== undefined && value !== 0) {
-                    usedStatuses.set(key, true);
+                    usedStatuses.set(status, true);
                 }
             }
         }
@@ -490,12 +495,12 @@ export class ProjectPage extends Page {
         this.#setToggleState('toggleDeleted', this.gridManager.deletedShown);
 
         if (this.gridManager.deletedShown && !this.#deletedLoaded) {
-            const analytic = this.taskTracker.addTask({
+            const analyticHaveNewData = await this.taskTracker.addTask({
                 method: () => this.loadAnalytics(true),
                 info: {loaderText: 'Загружаю аналитику удалённых проектов'}
             });
 
-            if (analytic.length) {
+            if (analyticHaveNewData) {
                 await this.taskTracker.addTask({
                     method: () => this.loadProjectInfo(true),
                     info: {loaderText: 'Загружаю настройки удалённых проектов'}

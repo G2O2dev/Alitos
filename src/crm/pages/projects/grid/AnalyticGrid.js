@@ -89,7 +89,7 @@ export class AnalyticGrid {
             const cached = getFromCache(params.node);
             if (cached) return cached;
 
-            const childValues = params.node.allLeafChildren.map(child => createCellHtml(child.data?.smartName.name, child.data?.smartName.tag));
+            const childValues = params.node.allLeafChildren.map(child => createCellHtml(child.data?.static.smartName.name, child.data?.static.smartName.tag));
             if (allEqual(childValues)) {
                 setToCache(params.node, childValues[0]);
                 return childValues[0];
@@ -172,13 +172,25 @@ export class AnalyticGrid {
             },
             {
                 headerName: 'Статус',
-                field: 'static.state',
+                field: 'static.status',
                 minWidth: 120,
                 maxWidth: 120,
                 resizable: false,
                 filterParams: {suppressMiniFilter: true},
                 aggFunc: "activeInactive",
                 cellClass: info => this.#getCellClassByStatus(info.data),
+                valueGetter: params => {
+                    if (params.data) {
+                        if (params.data.static.delete_date)
+                            return 'Удалён';
+
+                        if (params.data.static.status === 1) {
+                            return 'Активен';
+                        } else {
+                            return 'Неактивен';
+                        }
+                    }
+                },
                 headerTooltip: 'Текущий статус проекта. Если ячейка:\nЖёлтая — при последней отправке лимит проекта был снижен системой из-за нехватки баланса.\nКрасная — проект не был отправлен из-за нехватки баланса.',
             },
             {
@@ -579,8 +591,9 @@ export class AnalyticGrid {
     }
 
     #getCellClassByStatus(data) {
-        if (!data || data.static.send_status === null) return '';
-        return data.static.send_status === 0 ? 'project-limited-completely' : data.static.send_status > 0 ? 'project-limited' : '';
+        if (!data) return '';
+
+        return data.static.state === 0 ? 'project-limited-completely' : data.static.state > 0 ? 'project-limited' : '';
     }
 
     #buildPeriodColumns(periodDataIndex, periodName = '', visibleColumns = ['processed', 'leads', 'missed', 'declined']) {
@@ -882,12 +895,12 @@ export class AnalyticGrid {
     toggleSourcesGrouping() {
         this.sourcesGrouping = !this.sourcesGrouping;
 
-        this.gridApi.setRowGroupColumns(this.sourcesGrouping ? ['sources'] : []);
+        this.gridApi.setRowGroupColumns(this.sourcesGrouping ? ['static.sources'] : []);
 
         if (!this.sourcesGrouping) {
             this.gridApi.applyColumnState({
                 state: [
-                    {colId: 'sources', hide: true}
+                    {colId: 'static.sources', hide: true}
                 ],
                 applyOrder: false,
             });

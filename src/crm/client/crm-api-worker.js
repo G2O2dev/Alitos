@@ -152,10 +152,7 @@ function formatAnalyticWorkdays(workdays) {
 function parseDynamicData(analytic) {
     const result = new Map();
     for (const project of analytic) {
-        result.set(project.id, {
-            id: project.id,
-            callCounts: countCalls(project),
-        });
+        result.set(project.id, countCalls(project));
     }
     return result;
 }
@@ -171,7 +168,7 @@ function parseStaticData(analytic) {
             tag: project.tag,
             name: project.name,
             smartName: smartNameParts,
-            state: deleted ? "Удалён" : project.status === 1 ? "Активен" : "Неактивен",
+            status: project.status,
             project_type: assocType(project.type),
             operator: encryptedOp,
             limit: Number(project.lim),
@@ -205,12 +202,35 @@ function parseAnalytic(analyticHtml, loadStaticData) {
     }
 }
 
+
+function parseProjects(projectsData, isDeleted) {
+    const {projects} = JSON.parse(projectsData);
+
+    const result = new Map();
+    for (const project of projects) {
+        result.set(project.id, project);
+    }
+
+    return result;
+}
+
 self.onmessage = function(e) {
-    const { key, analyticHtml, extractStaticData } = e.data;
-    const result = parseAnalytic(analyticHtml, extractStaticData);
-    self.postMessage({
-        type: 'analyticsResponse',
-        key: key,
-        data: result,
-    });
+
+    if (e.data.type === 'analyticRequest') {
+        const { key, analyticHtml, extractStaticData } = e.data;
+        const result = parseAnalytic(analyticHtml, extractStaticData);
+        self.postMessage({
+            type: 'analyticsResponse',
+            key: key,
+            data: result,
+        });
+    } else if (e.data.type === 'projectsRequest') {
+        const { projectsData, isDeleted } = e.data;
+        const result = parseProjects(projectsData, isDeleted);
+        self.postMessage({
+            type: 'projectsResponse',
+            isDeleted: isDeleted,
+            data: result,
+        });
+    }
 };

@@ -6,8 +6,7 @@ import bigdataSession from "./bigdata-session.js";
 class CrmSession {
     #cache;
 
-    static CACHE_PREFIX_PROJECTS_STATIC = 'projects_static';
-    static CACHE_PREFIX_PROJECTS_ANALYTIC = 'projects_analytic_';
+    static CACHE_STATIC_DATA = 'static_data';
     static CACHE_KEY_CLIENT_INFO = 'client_info';
     static CACHE_KEY_PROJECTS_CONFIG = 'projects_config';
     static CACHE_KEY_MANAGER_INFO = 'manager_info';
@@ -44,33 +43,53 @@ class CrmSession {
         return this.getAnalyticBySliceName(sliceName);
     }
 
+    #staticDataSources = {
+        default: { loaded: false, loader: null },
+        deleted: { loaded: false, loader: null },
+        fullLoaders: {
+            true: null,
+            false: null,
+        }
+    };
     async getAnalyticBySliceName(sliceName) {
-        const staticLoaded = await this.getStaticData() === null;
+        const isDeleted = sliceName.includes("type=deleted");
+        const key = isDeleted ? "deleted" : "default";
+        const source = this.#staticDataSources[key];
+        const currentStaticData = await this.getStaticData() || new Map();
 
-        if (staticLoaded) {
-            const data = await crmApi.getAnalytic(sliceName, staticLoaded);
-            this.#cache.set("static_data", data.staticData);
-            this.#cache.set(`analytic_${sliceName}`, data.analytic);
-            return data.analytic;
+        if (!source.loaded) {
+            // Если статические данные ещё не загружены, экстрактим статические данные из аналитики
+            if (!source.loader) {
+                source.loader = crmApi.getAnalytic(sliceName, true).then(data => {
+                    this.#cache.set(`analytic_${sliceName}`, data.analytic);
+                    this.#cache.set(CrmSession.CACHE_STATIC_DATA, new Map([...currentStaticData, ...data.staticData]));
+                    source.loaded = true;
+                });
+            }
+            await source.loader;
+            return this.#cache.get(`analytic_${sliceName}`);
         }
 
         return this.#cache.get(
             `analytic_${sliceName}`,
-            () => crmApi.getAnalytic(sliceName, false),
+            async () => (await crmApi.getAnalytic(sliceName, false)).analytic,
         );
     }
 
     async getStaticData() {
-        return this.#cache.get("static_data", () => null);
+        return this.#cache.get(CrmSession.CACHE_STATIC_DATA, () => null);
     }
     async loadFullStaticData(deleted) {
-        const fullStaticData = await crmApi.getProjects(deleted);
-        const basicData = await this.#cache.get("static_data");
-        const merged = this.#mergeMaps(fullStaticData, basicData);
-        console.log(merged)
+        if (!this.#staticDataSources.fullLoaders[deleted]) {
+            this.#staticDataSources.fullLoaders[deleted] = crmApi.getProjects(deleted).then(async fullStaticData => {
+                const basicData = await this.#cache.get(CrmSession.CACHE_STATIC_DATA);
 
-        this.#cache.set("static_data", merged);
-        return merged;
+                const merged = this.#mergeMaps(fullStaticData, basicData);
+                this.#cache.set(CrmSession.CACHE_STATIC_DATA, merged);
+            });
+        }
+
+        await this.#staticDataSources.fullLoaders[deleted];
     }
 
     async getManagerInfo() {
@@ -134,9 +153,9 @@ class CrmSession {
         const resp = await crmApi.disableProject(ids);
 
         await this.#cache.updateByPrefix('analytic_', (project) => {
-            if (ids.some(id => id === project.id)) {
-                project.state = "Неактивен";
-            }
+            // if (ids.some(id => id === project.id)) {
+            //     project.state = "Неактивен";
+            // }
 
             return project;
         });
@@ -145,9 +164,9 @@ class CrmSession {
         const resp = await crmApi.enableProject(ids);
 
         await this.#cache.updateByPrefix('analytic_', (project) => {
-            if (ids.some(id => id === project.id)) {
-                project.state = "Активен";
-            }
+            // if (ids.some(id => id === project.id)) {
+            //     project.state = "Активен";
+            // }
 
             return project;
         });
