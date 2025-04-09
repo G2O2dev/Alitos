@@ -55,7 +55,7 @@ async function processRequest(request) {
     try {
         switch (request.action) {
             case "save-crm-url": {
-                await chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+                await chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
                     if (tabs.length === 0) return;
 
                     const url = new URL(tabs[0].url);
@@ -76,17 +76,16 @@ async function processRequest(request) {
                 const req_url = activeDomain + request.url;
 
                 request.params ??= {};
-                Object.assign({
+                Object.assign(request.params, {
                     method: 'GET',
                     credentials: 'include',
                     redirect: "manual",
-                }, request.params);
+                });
 
                 let response;
                 let tryWithNoCors = false;
                 try {
                     response = await fetch(req_url, request.params);
-
                     tryWithNoCors = !response.ok;
                 } catch (err) {
                     tryWithNoCors = true;
@@ -102,11 +101,29 @@ async function processRequest(request) {
 
                 return await response.text();
             }
+            case "open-window-with-links": {
+                const urls = request.urls;
+                const newWindow = await chrome.windows.create({
+                    url: urls[0],
+                    ...request.windowParams,
+                });
+
+                for (let i = 1; i < urls.length; i++) {
+                    await chrome.tabs.create({
+                        windowId: newWindow.id,
+                        url: urls[i],
+                        active: false
+                    });
+                }
+                break;
+            }
             default: {
-                console.warn('Unknown action:', request.action);
+                console.warn('Неизвестное действие:', request.action);
             }
         }
-    } catch (e) { console.error('Error on request:', e, request) }
+    } catch (e) {
+        console.error('Error on request:', e, request);
+    }
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

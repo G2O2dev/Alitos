@@ -1037,11 +1037,11 @@
   color: var(--color-text-secondary);
 }
 
-.smartname_name a, .smartname_tag a {
+.smartname_name a, .smartname_tag a, .ag-cell[col-id="static.project_type"] a {
   color: var(--color-text-blue-light);
   text-decoration: none;
 }
-.smartname_name a:hover, .smartname_tag a:hover {
+.smartname_name a:hover, .smartname_tag a:hover, .ag-cell[col-id="static.project_type"] a:hover {
   text-decoration: underline;
 }
 

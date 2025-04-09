@@ -12,7 +12,8 @@
         "default_popup": "src/popup/popup.html"
     },
     "permissions": [
-        "tabs"
+        "tabs",
+        "windows"
     ],
     "host_permissions": ["<all_urls>"],
     "background": {

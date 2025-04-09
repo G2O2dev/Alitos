@@ -342,7 +342,7 @@ export class AnalyticGrid {
                 minWidth: 35,
                 cellStyle: (p) => {
                     if (!p.node.footer) {
-                        return { padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+                        return {padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center'}
                     }
                 },
                 colSpan: (p) => {
@@ -432,7 +432,7 @@ export class AnalyticGrid {
             onFilterChanged: () => this.#refreshAggregated(),
 
             processCellForClipboard: (params) => {
-                if (params.column.colId === 'smartName') {
+                if (params.column.colId === 'static.smartName') {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(params.value.name, 'text/html');
                     return doc.body.textContent;
@@ -473,7 +473,7 @@ export class AnalyticGrid {
                         startRowNode = node;
                         initialRowIndex = node.rowIndex;
                         dragSelectAction = node.isSelected() ? 'deselect' : 'select';
-                        document.addEventListener('mousemove', onMouseMove, { passive: false });
+                        document.addEventListener('mousemove', onMouseMove, {passive: false});
                         document.addEventListener('mouseup', onMouseUp);
                     }
                 };
@@ -503,8 +503,16 @@ export class AnalyticGrid {
                         }
                     }
 
-                    if (nodesToSelect.length) gridApi.setNodesSelected({ nodes: nodesToSelect, newValue: true, suppressFinishActions: true });
-                    if (nodesToDeselect.length) gridApi.setNodesSelected({ nodes: nodesToDeselect, newValue: false, suppressFinishActions: true });
+                    if (nodesToSelect.length) gridApi.setNodesSelected({
+                        nodes: nodesToSelect,
+                        newValue: true,
+                        suppressFinishActions: true
+                    });
+                    if (nodesToDeselect.length) gridApi.setNodesSelected({
+                        nodes: nodesToDeselect,
+                        newValue: false,
+                        suppressFinishActions: true
+                    });
 
                     startRowNode = currentRowNode;
                 };
@@ -515,9 +523,9 @@ export class AnalyticGrid {
 
                     if (isClick && startRowNode) {
                         const newValue = dragSelectAction === 'select';
-                        gridApi.setNodesSelected({ nodes: [startRowNode], newValue });
+                        gridApi.setNodesSelected({nodes: [startRowNode], newValue});
                     } else {
-                        gridApi.setNodesSelected({ nodes: [], newValue: false });
+                        gridApi.setNodesSelected({nodes: [], newValue: false});
                     }
 
                     isDragSelecting = false;
@@ -576,18 +584,53 @@ export class AnalyticGrid {
     }
 
     #projectTypeRenderer(p) {
-        if (p.value?.startsWith('Сайты')) {
-            if (!p.eGridCell.dataset.clickListenerAdded) {
-                p.eGridCell.dataset.clickListenerAdded = "true";
-                p.eGridCell.addEventListener("click", () => {
-                    p.data.static.sources.forEach(d => window.open("https://" + d, '_blank').focus());
-                });
-            }
+        if (!p.data || !p.value) return p.value;
+
+        const sourcesCount = p.data.static.sources.length ?? (
+            p.data.static.sources.hosts_content.length +
+            p.data.static.sources.calls_content.length +
+            p.data.static.sources.sms_content.length
+        );
+
+        const sourcesCounter = `<span class="sources_count">${sourcesCount}</span>`;
+        let sourceType = p.value;
+        const hasSites = p.data.static.sources.hosts_content || p.value.includes('Сайты')
+        if (hasSites) {
+            sourceType = `<a href="#">${p.value}</a>`;
+
+            setTimeout(() => {
+                const anchor = p.eGridCell.querySelector("a");
+                if (!anchor.dataset.clickListenerAdded) {
+                    anchor.dataset.clickListenerAdded = "true";
+                    if (anchor) {
+                        anchor.addEventListener("click", (e) => {
+                            e.preventDefault();
+                            let webpages = p.data.static.sources.hosts_content ?? p.data.static.sources;
+                            webpages = webpages.map(w => `https://${w}`);
+
+                            if (sourcesCount > 1) {
+                                chrome.runtime.sendMessage({
+                                    action: "open-window-with-links",
+                                    urls: webpages,
+                                    windowParams: {
+                                        left: Math.round((screen.availWidth - 1280) / 2),
+                                        top: Math.round((screen.availHeight - 768) / 2),
+                                        width: 1280,
+                                        height: 768,
+                                        focused: true,
+                                        type: "normal"
+                                    }
+                                });
+                            } else {
+                                window.open(webpages[0], '_blank');
+                            }
+                        });
+                    }
+                }
+            }, 0);
         }
 
-        return p.data?.static.sources
-            ? `${p.value} <span class="sources_count">${p.data.static.sources.length}</span>`
-            : p.value;
+        return `${sourceType} ${sourcesCounter}`;
     }
 
     #getCellClassByStatus(data) {
@@ -607,13 +650,13 @@ export class AnalyticGrid {
         };
 
         const cellRender = (params, showPercent = true) => {
-            const { field } = params.colDef;
+            const {field} = params.colDef;
             const periodId = params.colDef.context.periodId;
             let value, percent;
             if (params.node.group) {
                 if (!showPercent) return params.value;
                 if (params.value && typeof params.value === 'object' && params.value.value !== undefined) {
-                    ({ value, percent } = params.value);
+                    ({value, percent} = params.value);
                 } else {
                     value = params.value;
                     const totalKey = `processed${periodId === 0 ? '' : `_${periodId}`}`;
@@ -634,33 +677,54 @@ export class AnalyticGrid {
 
         const getColumnName = (field) => {
             switch (field) {
-                case 'processed': return 'Номера';
-                case 'leads': return 'Лиды';
-                case 'missed': return 'Недозвоны';
-                case 'declined': return 'Отказы';
+                case 'processed':
+                    return 'Номера';
+                case 'leads':
+                    return 'Лиды';
+                case 'missed':
+                    return 'Недозвоны';
+                case 'declined':
+                    return 'Отказы';
 
-                case 'crm_base': return 'База';
-                case 'crm_missed': return 'Недозвон';
-                case 'crm_conversation': return 'Переговоры';
-                case 'crm_payexpect': return 'Ожидаем оплаты';
-                case 'crm_partner': return 'Партнёрка';
-                case 'crm_payed': return 'Оплачено';
-                case 'crm_closed': return 'Закрыто и не реализовано';
-                case 'crm_test': return 'Тест драйв';
-                case 'crm_hot': return 'Горячий';
-                case 'crm_finalymissed': return 'Конечный недозвон';
-                case 'crm_forreplace': return 'На замену';
-                default: return field;
+                case 'crm_base':
+                    return 'База';
+                case 'crm_missed':
+                    return 'Недозвон';
+                case 'crm_conversation':
+                    return 'Переговоры';
+                case 'crm_payexpect':
+                    return 'Ожидаем оплаты';
+                case 'crm_partner':
+                    return 'Партнёрка';
+                case 'crm_payed':
+                    return 'Оплачено';
+                case 'crm_closed':
+                    return 'Закрыто и не реализовано';
+                case 'crm_test':
+                    return 'Тест драйв';
+                case 'crm_hot':
+                    return 'Горячий';
+                case 'crm_finalymissed':
+                    return 'Конечный недозвон';
+                case 'crm_forreplace':
+                    return 'На замену';
+                default:
+                    return field;
             }
         };
 
         const getColumnTooltip = (field, periodName) => {
             switch (field) {
-                case 'processed': return `Всего номеров за ${periodName}.`;
-                case 'leads': return `Лиды за ${periodName}.\nКолонка является суммой статусов:\n- Переговоры\n- Ожидаем оплаты\n- Партнёрка\n- Оплачено\n- Тест драйв\n- Горячий`;
-                case 'missed': return `Недозвоны за ${periodName}.\nКолонка является суммой статусов:\n- Недозвон\n- Конечный недозвон`;
-                case 'declined': return `Отказы за ${periodName}.\nКолонка является суммой статусов:\n- Закрыто и не реализовано\n- На замену`;
-                default: return field;
+                case 'processed':
+                    return `Всего номеров за ${periodName}.`;
+                case 'leads':
+                    return `Лиды за ${periodName}.\nКолонка является суммой статусов:\n- Переговоры\n- Ожидаем оплаты\n- Партнёрка\n- Оплачено\n- Тест драйв\n- Горячий`;
+                case 'missed':
+                    return `Недозвоны за ${periodName}.\nКолонка является суммой статусов:\n- Недозвон\n- Конечный недозвон`;
+                case 'declined':
+                    return `Отказы за ${periodName}.\nКолонка является суммой статусов:\n- Закрыто и не реализовано\n- На замену`;
+                default:
+                    return field;
             }
         };
 
@@ -710,7 +774,7 @@ export class AnalyticGrid {
                     }
                     return a - b;
                 },
-                context: { periodId: periodDataIndex },
+                context: {periodId: periodDataIndex},
                 valueGetter: periodValueGetter,
                 cellRenderer: cellRenderer,
                 cellClass: cellClass,
@@ -852,11 +916,13 @@ export class AnalyticGrid {
     //#region Events
 
     #emit(eventName, detail = {}) {
-        this.#eventTarget.dispatchEvent(new CustomEvent(eventName, { detail }));
+        this.#eventTarget.dispatchEvent(new CustomEvent(eventName, {detail}));
     }
+
     on(eventName, callback) {
         this.#eventTarget.addEventListener(eventName, callback);
     }
+
     off(eventName, callback) {
         this.#eventTarget.removeEventListener(eventName, callback);
     }
@@ -936,7 +1002,10 @@ export class AnalyticGrid {
 
     #useCrmStatuses = false;
 
-    get useCrmStatuses() { return this.#useCrmStatuses; }
+    get useCrmStatuses() {
+        return this.#useCrmStatuses;
+    }
+
     toggleCrmStatuses(usedCrmColumns) {
         const crmStatuses = ['crm_base', 'crm_missed', 'crm_conversation', 'crm_payexpect', 'crm_partner', 'crm_payed', 'crm_closed', 'crm_test', 'crm_hot', 'crm_forreplace', 'crm_finalymissed'];
         const periodColumns = ['leads', 'missed', 'declined'];

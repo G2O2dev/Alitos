@@ -14,8 +14,26 @@ function replaceDomainsWithLinks(text, blankTarget = false) {
     });
 }
 
-function parseSources(content) {
-    return content.replace(/"/g, "").split(",").map(s => s.trim());
+function parseSources(project) {
+    switch (project.type) {
+        case 'complex':
+            const json = JSON.parse(project.content);
+            if (json.hosts_cnt) {
+                json.hosts_content = json.hosts_content.replace(/"/g, "").split(",").map(s => s.trim());
+            }
+            if (json.calls_cnt) {
+                json.calls_content = json.calls_content.replace(/"/g, "").split(",").map(s => s.trim());
+            }
+            if (json.sms_cnt) {
+                json.sms_content = json.sms_content.replace(/"/g, "").split(",").map(s => s.trim());
+            }
+
+            return json;
+        case 'calls':
+        case 'hosthost':
+        case 'hosts':
+            return project.content.replace(/"/g, "").split(",").map(s => s.trim());
+    }
 }
 function calcPercent(total, value) {
     return total === 0 ? 0 : Math.round((value / total) * 100);
@@ -26,6 +44,7 @@ function assocType(type) {
             calls: "Звонки",
             hosts: "Сайты",
             hosthost: "Сайты (П)",
+            complex: "Комплекс",
             sms: "СМС"
         }[type] || type
     );
@@ -177,7 +196,7 @@ function parseStaticData(analytic) {
             creation_date: new Date(project.created_at),
             edit_date: new Date(project.updated_at),
             delete_date: deleted ? new Date(project.deleted_at) : null,
-            sources: parseSources(project.content),
+            sources: parseSources(project),
         });
     }
     return result;
@@ -215,7 +234,6 @@ function parseProjects(projectsData, isDeleted) {
 }
 
 self.onmessage = function(e) {
-
     if (e.data.type === 'analyticRequest') {
         const { key, analyticHtml, extractStaticData } = e.data;
         const result = parseAnalytic(analyticHtml, extractStaticData);

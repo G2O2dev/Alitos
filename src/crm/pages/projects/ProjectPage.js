@@ -504,13 +504,15 @@ export class ProjectPage extends Page {
         if (this.gridManager.deletedShown && !this.#deletedLoaded) {
             const analyticHaveNewData = await this.taskTracker.addTask({
                 method: () => this.loadAnalytics(true),
-                info: {loaderText: 'Загружаю аналитику удалённых проектов'}
+                info: {loaderText: 'Загружаю аналитику удалённых проектов'},
+                parallel: true,
             });
 
             if (analyticHaveNewData) {
                 await this.taskTracker.addTask({
                     method: () => this.loadProjectInfo(true),
-                    info: {loaderText: 'Загружаю настройки удалённых проектов'}
+                    info: {loaderText: 'Загружаю настройки удалённых проектов'},
+                    parallel: true,
                 });
             }
 
