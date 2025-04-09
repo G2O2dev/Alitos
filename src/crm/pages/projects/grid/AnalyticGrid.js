@@ -634,7 +634,7 @@ export class AnalyticGrid {
     }
 
     #getCellClassByStatus(data) {
-        if (!data) return '';
+        if (!data || data.static.status !== 1 || data.static.delete_date) return '';
 
         return data.static.state === 0 ? 'project-limited-completely' : data.static.state > 0 ? 'project-limited' : '';
     }
