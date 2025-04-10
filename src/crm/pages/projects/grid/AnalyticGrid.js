@@ -575,6 +575,9 @@ export class AnalyticGrid {
             if (e.ctrlKey && e.shiftKey && e.code === "KeyC") {
                 this.copySourcesOfSelected();
             }
+            if (e.ctrlKey && e.altKey && e.code === "KeyC") {
+                this.copyWebpagesOfSelected();
+            }
         });
     }
 
@@ -950,7 +953,7 @@ export class AnalyticGrid {
         const selected = [];
         range(startRow.rowIndex, endRow.rowIndex).forEach(i => {
             const row = this.gridApi.getDisplayedRowAtIndex(i);
-            if (row?.data) selected.push(row);
+            selected.push(row);
         });
         return selected;
     }
@@ -991,6 +994,24 @@ export class AnalyticGrid {
     copySourcesOfSelected() {
         const toCopy = this.getSelectedRows().map(row => row.data.static.sources);
         navigator.clipboard.writeText(toCopy.toString());
+    }
+
+    copyWebpagesOfSelected() {
+        const toCopy = this.getSelectedRows().map(row => {
+            const rowDomains = [];
+
+            if (row.group) {
+                for (const leaf of row.allLeafChildren) {
+                    rowDomains.push(...leaf.data.static.smartName.domains);
+                }
+            } else {
+                rowDomains.push(...row.data.static.smartName.domains);
+            }
+
+            return rowDomains;
+        }).flat();
+
+        navigator.clipboard.writeText(Array.from(new Set(toCopy)).join('\n'));
     }
 
     resetColumns() {
