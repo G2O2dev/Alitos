@@ -335,8 +335,10 @@ export class ProjectPage extends Page {
     async #applyPeriodToGrid(analytic, periodIndex) {
         const newRows = [];
         const staticData = await crmSession.getStaticData();
+        const rowsMap = this.gridManager.rows;
+
         for (const [pId, periodData] of analytic) {
-            const existingRow = this.gridManager.rows.get(pId);
+            const existingRow = rowsMap.get(pId);
             if (existingRow) {
                 existingRow.periods[periodIndex] = periodData;
             } else {
@@ -350,9 +352,14 @@ export class ProjectPage extends Page {
         }
 
         const newRowsLen = newRows.length;
-        this.gridManager.addRows(newRows);
-        if (this.gridManager.rows.size !== newRowsLen)
+        if (newRowsLen)
+            this.gridManager.addRows(newRows);
+
+        if (rowsMap.size !== newRowsLen)
             this.gridManager.refreshCells();
+
+        if (this.gridManager.sourcesGrouping)
+            this.gridManager.gridApi.refreshClientSideRowModel('aggregate');
     }
     #applyFullStaticDataToGrid(projectsInfo) {
         for (const staticData of projectsInfo.values()) {

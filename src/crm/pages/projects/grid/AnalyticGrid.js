@@ -429,7 +429,7 @@ export class AnalyticGrid {
             },
             onColumnVisible: ({api}) => api.sizeColumnsToFit(),
             sendToClipboard: this.#sendSelectedToClipboard,
-            onFilterChanged: () => this.#refreshAggregated(),
+            onFilterChanged: () => this.refreshAggregated(),
 
             processCellForClipboard: (params) => {
                 if (params.column.colId === 'static.smartName') {
@@ -550,7 +550,7 @@ export class AnalyticGrid {
         this.#emit("selectionChanged");
     }
 
-    #refreshAggregated() {
+    refreshAggregated() {
         const groupNodes = [];
         this.gridApi.forEachNode(node => {
             if (node.group) groupNodes.push(node);
