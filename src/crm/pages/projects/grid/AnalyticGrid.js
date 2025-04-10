@@ -25,6 +25,47 @@ export class AnalyticGrid {
     isPercentSorting = false;
     sourcesGrouping = false;
 
+    #smartnameCache = new WeakMap();
+
+    renderSmartnameForCell(params) {
+        if (params.node.footer) return;
+
+        const node = params.node;
+        const data = params.data;
+
+        const cached = this.#smartnameCache.get(node);
+        if (cached) return cached;
+
+        const allEqual = (arr) => arr.every(val => val === arr[0]);
+        const setToCache = (node, value) => this.#smartnameCache.set(node, value);
+        const createCellHtml = (name, tag, operator = '') => {
+            return `<span class="smartname_cell">
+                <span class="smartname_name">${name}</span>
+                ${tag ? `<span class="smartname_tag"> (${tag})</span>` : ''}
+                ${operator ? `<span class="smartname_operator">${operator}</span>` : ''}
+            </span>`;
+        };
+        const handleMixedValues = (childNodes) => {
+            const allDomains = childNodes.flatMap(child => child.data.static.smartName.domains || []);
+            const uniqueDomains = [...new Set(allDomains)];
+            const displayed = uniqueDomains.slice(0, 5).join(', ');
+            return createCellHtml(replaceDomainsWithLinks(displayed, true));
+        };
+
+        if (data) {
+            return createCellHtml(data.static.smartName.name, data.static.smartName.tag, data.static.operator);
+        }
+
+        const childValues = node.allLeafChildren.map(child => createCellHtml(child.data?.static.smartName.name, child.data?.static.smartName.tag));
+        if (allEqual(childValues)) {
+            setToCache(node, childValues[0]);
+            return childValues[0];
+        }
+        const result = handleMixedValues(node.allLeafChildren);
+        setToCache(node, result);
+        return result;
+    }
+
     constructor(config) {
         const {selector, periods} = config;
         this.gridElement = document.querySelector(selector);
@@ -75,47 +116,6 @@ export class AnalyticGrid {
             columnBorder: {style: 'solid', width: 1, color: 'var(--color-gray-300)'},
         });
 
-        const cache = new WeakMap();
-
-        const getFromCache = (node) => cache.get(node) || null;
-        const setToCache = (node, value) => cache.set(node, value);
-
-        const smartNameRenderer = (params) => {
-            if (params.data) {
-                return createCellHtml(params.data.static.smartName.name, params.data.static.smartName.tag, params.data.static.operator);
-            }
-            if (params.node.footer) return;
-
-            const cached = getFromCache(params.node);
-            if (cached) return cached;
-
-            const childValues = params.node.allLeafChildren.map(child => createCellHtml(child.data?.static.smartName.name, child.data?.static.smartName.tag));
-            if (allEqual(childValues)) {
-                setToCache(params.node, childValues[0]);
-                return childValues[0];
-            }
-            const result = handleMixedValues(params.node.allLeafChildren);
-            setToCache(params.node, result);
-            return result;
-        };
-
-        const createCellHtml = (name, tag, operator = '') => {
-            return `<span class="smartname_cell">
-                <span class="smartname_name">${name}</span>
-                ${tag ? `<span class="smartname_tag"> (${tag})</span>` : ''}
-                ${operator ? `<span class="smartname_operator">${operator}</span>` : ''}
-            </span>`;
-        };
-
-        const allEqual = (arr) => arr.every(val => val === arr[0]);
-
-        const handleMixedValues = (childNodes) => {
-            const allDomains = childNodes.flatMap(child => child.data.static.smartName.domains || []);
-            const uniqueDomains = [...new Set(allDomains)];
-            const displayed = uniqueDomains.slice(0, 5).join(', ');
-            return createCellHtml(replaceDomainsWithLinks(displayed, true));
-        };
-
         let basicColumns = [
             {
                 headerName: 'Id',
@@ -145,7 +145,7 @@ export class AnalyticGrid {
                 minWidth: 220,
                 filter: false,
                 headerTooltip: 'Умное имя имеет ряд улучшений над названием и тегом:\n- Компилирует название и тег в формате: Название (Тег).\n- В конце ячейки отображается реальный оператор.\n- При клике на домен, он будет открыт\n- Если тег повторяет название он не будет отображён.',
-                cellRenderer: smartNameRenderer,
+                cellRenderer: (p) => this.renderSmartnameForCell(p),
                 suppressColumnsToolPanel: true,
 
                 headerComponent: SmartnameToggleHeader,
@@ -434,7 +434,7 @@ export class AnalyticGrid {
             processCellForClipboard: (params) => {
                 if (params.column.colId === 'static.smartName') {
                     const parser = new DOMParser();
-                    const doc = parser.parseFromString(params.value.name, 'text/html');
+                    const doc = parser.parseFromString(params.value ? params.value.name : this.renderSmartnameForCell(params), 'text/html');
                     return doc.body.textContent;
                 }
                 return params.value;
