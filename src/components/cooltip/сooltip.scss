@@ -1,5 +1,8 @@
 .cooltip-tooltip {
   position: absolute;
+  top: 0;
+  left: 0;
+
   background: var(--color-bg, rgba(0, 0, 0, 0.9));
   color: var(--color-text-primary, white);
   padding: 5px 8px;
