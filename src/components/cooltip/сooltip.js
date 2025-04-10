@@ -55,11 +55,6 @@ class Cooltip {
         element.addEventListener('mouseleave', hide);
         element.addEventListener('focus', show);
         element.addEventListener('blur', hide);
-        element.addEventListener('DOMNodeRemoved', (event) => {
-            if (event.target === element && this.#currentElement === element) {
-                this.hideTooltip();
-            }
-        });
     }
 
     #observeMutations() {

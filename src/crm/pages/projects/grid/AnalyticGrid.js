@@ -991,27 +991,30 @@ export class AnalyticGrid {
         this.gridApi.onFilterChanged();
     }
 
+    copyItemsOfSelected(itemExtractor, formatFunc = items => items.toString()) {
+        const selectedRows = this.getSelectedRows();
+
+        const items = selectedRows.flatMap(row => {
+            return row.group
+                ? row.allLeafChildren.flatMap(child => itemExtractor(child))
+                : itemExtractor(row);
+        });
+
+        navigator.clipboard.writeText(formatFunc(items));
+    }
+
     copySourcesOfSelected() {
-        const toCopy = this.getSelectedRows().map(row => row.data.static.sources);
-        navigator.clipboard.writeText(toCopy.toString());
+        this.copyItemsOfSelected(
+            row => row.data.static.sources,
+            items => Array.from(new Set(items)).join('\n')
+        );
     }
 
     copyWebpagesOfSelected() {
-        const toCopy = this.getSelectedRows().map(row => {
-            const rowDomains = [];
-
-            if (row.group) {
-                for (const leaf of row.allLeafChildren) {
-                    rowDomains.push(...leaf.data.static.smartName.domains);
-                }
-            } else {
-                rowDomains.push(...row.data.static.smartName.domains);
-            }
-
-            return rowDomains;
-        }).flat();
-
-        navigator.clipboard.writeText(Array.from(new Set(toCopy)).join('\n'));
+        this.copyItemsOfSelected(
+            row => row.data.static.smartName.domains,
+            items => Array.from(new Set(items)).join('\n')
+        );
     }
 
     resetColumns() {
