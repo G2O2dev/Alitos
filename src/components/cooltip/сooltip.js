@@ -1,190 +1,273 @@
 class Cooltip {
+    #tooltip;
+    #arrow;
+    #boundHideTooltip;
+    #currentElement = null;
+
+    static GAP = 8;
+    static ARROW_SIZE = 7;
+    static VIEWPORT_MARGIN = 10;
+    static DEFAULT_POSITIONS = ['top', 'bottom', 'right', 'left'];
+
     constructor() {
-        this.attachedElements = new Set();
-        this.observer = null;
-        this.sharedTooltip = this.createSharedTooltip();
-        this.currentElement = null;
-        this.setupMutationObserver();
-        this.attachToExistingElements();
-        window.addEventListener('resize', () => this.hideTooltip());
-        window.addEventListener('scroll', () => this.hideTooltip());
+        this.#createTooltipElement();
+        this.#attachToExistingElements();
+        this.#observeMutations();
+        this.#boundHideTooltip = this.hideTooltip.bind(this);
+
+        window.addEventListener('resize', this.#boundHideTooltip);
+        window.addEventListener('scroll', this.#boundHideTooltip, true);
     }
 
-    createSharedTooltip() {
-        const tooltip = document.createElement('div');
-        tooltip.className = 'tooltip-element';
-        document.body.appendChild(tooltip);
-        return tooltip;
+    #createTooltipElement() {
+        this.#tooltip = document.createElement('div');
+        this.#tooltip.className = 'cooltip-tooltip';
+        this.#tooltip.setAttribute('role', 'tooltip');
+        this.#tooltip.style.position = 'absolute';
+        this.#tooltip.style.zIndex = '1000';
+        this.#tooltip.style.visibility = 'hidden';
+        this.#tooltip.style.opacity = '0';
+        this.#tooltip.style.transition = 'opacity 0.2s, visibility 0.2s';
+
+        this.#arrow = document.createElement('div');
+        this.#arrow.className = 'cooltip-tooltip__arrow';
+
+        this.#arrow.style.position = 'absolute';
+        this.#arrow.style.width = '0';
+        this.#arrow.style.height = '0';
+
+        this.#tooltip.appendChild(this.#arrow);
+        document.body.appendChild(this.#tooltip);
     }
 
-    setupMutationObserver() {
-        this.observer = new MutationObserver(mutations => {
+    #attachToExistingElements() {
+        document.querySelectorAll('[data-tooltip]').forEach(el => this.#attachListeners(el));
+    }
+
+    #attachListeners(element) {
+        if (element.__cooltipAttached) return;
+        element.__cooltipAttached = true;
+
+        const show = () => this.showTooltip(element);
+        const hide = () => this.hideTooltip();
+
+        element.addEventListener('mouseenter', show);
+        element.addEventListener('mouseleave', hide);
+        element.addEventListener('focus', show);
+        element.addEventListener('blur', hide);
+        element.addEventListener('DOMNodeRemoved', (event) => {
+            if (event.target === element && this.#currentElement === element) {
+                this.hideTooltip();
+            }
+        });
+    }
+
+    #observeMutations() {
+        const observer = new MutationObserver(mutations => {
             mutations.forEach(mutation => {
                 mutation.addedNodes.forEach(node => {
-                    if (node.nodeType !== Node.ELEMENT_NODE) return;
-                    if (node.classList?.contains('cooltip')) {
-                        this.attachTooltip(node);
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.hasAttribute('data-tooltip')) {
+                            this.#attachListeners(node);
+                        }
+                        node.querySelectorAll('[data-tooltip]').forEach(el => this.#attachListeners(el));
+                    }
+                });
+                mutation.removedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE && node === this.#currentElement) {
+                        this.hideTooltip();
                     }
                 });
             });
         });
-        this.observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
-    attachToExistingElements() {
-        document.querySelectorAll('.cooltip').forEach(element => {
-            this.attachTooltip(element);
-        });
-    }
+    #measureTooltip(htmlContent) {
+        const clone = this.#tooltip.cloneNode(true);
+        clone.style.visibility = 'hidden';
+        clone.style.position = 'absolute';
+        clone.style.top = '-9999px';
+        clone.style.left = '-9999px';
+        clone.style.opacity = '0';
+        clone.style.transition = 'none';
 
-    attachTooltip(element) {
-        if (this.attachedElements.has(element)) return;
-        this.attachedElements.add(element);
+        const arrowClone = clone.querySelector('.cooltip-tooltip__arrow');
 
-        const mouseEnterHandler = () => this.showTooltip(element);
-        const mouseLeaveHandler = () => this.hideTooltip();
-        const focusHandler = () => this.showTooltip(element);
-        const blurHandler = () => this.hideTooltip();
-
-        element._cooltipHandlers = {
-            mouseEnterHandler,
-            mouseLeaveHandler,
-            focusHandler,
-            blurHandler
-        };
-
-        element.addEventListener('mouseenter', mouseEnterHandler);
-        element.addEventListener('mouseleave', mouseLeaveHandler);
-        element.addEventListener('focus', focusHandler);
-        element.addEventListener('blur', blurHandler);
-    }
-
-    detachTooltip(element) {
-        if (!this.attachedElements.has(element)) return;
-        this.attachedElements.delete(element);
-        const handlers = element._cooltipHandlers;
-        if (handlers) {
-            element.removeEventListener('mouseenter', handlers.mouseEnterHandler);
-            element.removeEventListener('mouseleave', handlers.mouseLeaveHandler);
-            element.removeEventListener('focus', handlers.focusHandler);
-            element.removeEventListener('blur', handlers.blurHandler);
-            delete element._cooltipHandlers;
-        }
-    }
-
-    calculatePosition(element) {
-        const rect = element.getBoundingClientRect();
-        const tooltipRect = this.sharedTooltip.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const padding = 10;
-        let position = null;
-
-        const sideAttr = element.dataset.tooltipSide;
-        if (sideAttr) {
-            switch (sideAttr.toLowerCase()) {
-                case 'top':
-                    position = this.calculateTopPosition(rect, tooltipRect, padding);
-                    break;
-                case 'bottom':
-                    position = this.calculateBottomPosition(rect, tooltipRect, padding);
-                    break;
-                case 'left':
-                    position = this.calculateLeftPosition(rect, tooltipRect, padding);
-                    break;
-                case 'right':
-                    position = this.calculateRightPosition(rect, tooltipRect, padding);
-                    break;
-                default:
-                    position = null;
+        let contentContainer = null;
+        for(let child of clone.childNodes) {
+            if(child !== arrowClone) {
+                contentContainer = child;
+                break;
             }
         }
-        // Если атрибут не указан или значение некорректно – выбираем сторону автоматически
-        if (!position) {
-            if (rect.top > tooltipRect.height + padding) {
-                position = this.calculateTopPosition(rect, tooltipRect, padding);
-            } else if (rect.bottom + tooltipRect.height + padding < viewportHeight) {
-                position = this.calculateBottomPosition(rect, tooltipRect, padding);
-            } else if (rect.left > tooltipRect.width + padding) {
-                position = this.calculateLeftPosition(rect, tooltipRect, padding);
-            } else {
-                position = this.calculateRightPosition(rect, tooltipRect, padding);
-            }
+        if (!contentContainer) {
+            contentContainer = document.createElement('div');
+            clone.insertBefore(contentContainer, arrowClone);
         }
-        return position;
-    }
+        contentContainer.innerHTML = htmlContent;
 
-    calculateTopPosition(rect, tooltipRect, padding) {
-        return {
-            x: rect.left + rect.width / 2 - tooltipRect.width / 2,
-            y: rect.top - tooltipRect.height - padding,
-            origin: 'top'
-        };
-    }
+        clone.classList.add('cooltip-tooltip');
 
-    calculateBottomPosition(rect, tooltipRect, padding) {
-        return {
-            x: rect.left + rect.width / 2 - tooltipRect.width / 2,
-            y: rect.bottom + padding,
-            origin: 'bottom'
+        document.body.appendChild(clone);
+        const dimensions = {
+            width: clone.offsetWidth,
+            height: clone.offsetHeight
         };
-    }
-
-    calculateLeftPosition(rect, tooltipRect, padding) {
-        return {
-            x: rect.left - tooltipRect.width - padding,
-            y: rect.top + rect.height / 2 - tooltipRect.height / 2,
-            origin: 'left'
-        };
-    }
-
-    calculateRightPosition(rect, tooltipRect, padding) {
-        return {
-            x: rect.right + padding,
-            y: rect.top + rect.height / 2 - tooltipRect.height / 2,
-            origin: 'right'
-        };
+        document.body.removeChild(clone);
+        return dimensions;
     }
 
     showTooltip(element) {
-        if (this.currentElement === element) return;
-        this.currentElement = element;
-        this.sharedTooltip.textContent = element.dataset.tooltip;
+        const content = element.dataset.tooltip;
+        const positionPref = (element.dataset.tooltipPosition || '').split(' ').filter(Boolean);
+        const customClass = element.dataset.tooltipClass || '';
 
-        this.sharedTooltip.style.visibility = 'hidden';
-        this.sharedTooltip.style.display = 'block';
+        if (!content) return;
 
-        const position = this.calculatePosition(element);
+        this.#currentElement = element;
 
-        this.sharedTooltip.style.visibility = '';
+        this.#tooltip.innerHTML = '';
+        const contentDiv = document.createElement('div'); // Контейнер для контента
+        contentDiv.innerHTML = content;
+        this.#tooltip.appendChild(contentDiv);
 
-        // Ограничиваем положение, чтобы тултип не выходил за пределы окна
-        const tooltipWidth = this.sharedTooltip.offsetWidth;
-        const tooltipHeight = this.sharedTooltip.offsetHeight;
-        const finalX = Math.max(10, Math.min(position.x, window.innerWidth - tooltipWidth - 10));
-        const finalY = Math.max(10, Math.min(position.y, window.innerHeight - tooltipHeight - 10));
-        this.sharedTooltip.style.left = `${finalX}px`;
-        this.sharedTooltip.style.top = `${finalY}px`;
+        this.#arrow = document.createElement('div');
+        this.#arrow.className = 'cooltip-tooltip__arrow';
+        this.#arrow.style.position = 'absolute';
+        this.#arrow.style.width = '0';
+        this.#arrow.style.height = '0';
+        this.#tooltip.appendChild(this.#arrow);
 
-        // Вычисляем смещение стрелки относительно центра тултипа
-        const elementRect = element.getBoundingClientRect();
-        let arrowOffset;
-        if (position.origin === 'top' || position.origin === 'bottom') {
-            const elementCenterX = elementRect.left + elementRect.width / 2;
-            const tooltipCenterX = finalX + tooltipWidth / 2;
-            arrowOffset = elementCenterX - tooltipCenterX;
-        } else {
-            const elementCenterY = elementRect.top + elementRect.height / 2;
-            const tooltipCenterY = finalY + tooltipHeight / 2;
-            arrowOffset = elementCenterY - tooltipCenterY;
+
+        this.#tooltip.className = 'cooltip-tooltip';
+        if (customClass) {
+            this.#tooltip.classList.add(...customClass.split(' ').filter(Boolean));
         }
-        this.sharedTooltip.style.setProperty('--arrow-position', `${arrowOffset}px`);
 
-        this.sharedTooltip.className = `tooltip-element ${position.origin} shown`;
+        const tooltipDim = this.#measureTooltip(content);
+
+        const targetRect = element.getBoundingClientRect();
+        const positions = positionPref.length > 0 ? positionPref : Cooltip.DEFAULT_POSITIONS;
+
+        let bestPosition = null;
+
+        for (const pos of positions) {
+            const { top, left } = this.#calculatePosition(targetRect, tooltipDim, pos);
+            if (this.#isInViewport(top, left, tooltipDim)) {
+                bestPosition = { top, left, pos };
+                break;
+            }
+        }
+
+        if (!bestPosition) {
+            const firstPos = positions[0];
+            let { top, left } = this.#calculatePosition(targetRect, tooltipDim, firstPos);
+
+            const scrollX = window.scrollX;
+            const scrollY = window.scrollY;
+            left = Math.max(scrollX + Cooltip.VIEWPORT_MARGIN, Math.min(left, scrollX + window.innerWidth - tooltipDim.width - Cooltip.VIEWPORT_MARGIN));
+            top = Math.max(scrollY + Cooltip.VIEWPORT_MARGIN, Math.min(top, scrollY + window.innerHeight - tooltipDim.height - Cooltip.VIEWPORT_MARGIN));
+
+            bestPosition = { top, left, pos: firstPos };
+        }
+
+        this.#tooltip.style.left = `${bestPosition.left}px`;
+        this.#tooltip.style.top = `${bestPosition.top}px`;
+        this.#tooltip.dataset.actualPosition = bestPosition.pos;
+
+        this.#positionArrow(targetRect, bestPosition.pos);
+
+        this.#tooltip.style.visibility = 'visible';
+        this.#tooltip.style.opacity = '1';
+    }
+
+    #calculatePosition(targetRect, tooltipDim, position) {
+        let top, left;
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+
+        switch (position) {
+            case 'top':
+                top = targetRect.top + scrollY - tooltipDim.height - Cooltip.GAP;
+                left = targetRect.left + scrollX + (targetRect.width / 2) - (tooltipDim.width / 2);
+                break;
+            case 'bottom':
+                top = targetRect.bottom + scrollY + Cooltip.GAP;
+                left = targetRect.left + scrollX + (targetRect.width / 2) - (tooltipDim.width / 2);
+                break;
+            case 'left':
+                top = targetRect.top + scrollY + (targetRect.height / 2) - (tooltipDim.height / 2);
+                left = targetRect.left + scrollX - tooltipDim.width - Cooltip.GAP;
+                break;
+            case 'right':
+                top = targetRect.top + scrollY + (targetRect.height / 2) - (tooltipDim.height / 2);
+                left = targetRect.right + scrollX + Cooltip.GAP;
+                break;
+            default:
+                top = targetRect.top + scrollY - tooltipDim.height - Cooltip.GAP;
+                left = targetRect.left + scrollX + (targetRect.width / 2) - (tooltipDim.width / 2);
+                break;
+        }
+        return { top, left };
+    }
+
+    #isInViewport(top, left, tooltipDim) {
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+        return (
+            top >= scrollY + Cooltip.VIEWPORT_MARGIN &&
+            left >= scrollX + Cooltip.VIEWPORT_MARGIN &&
+            (top + tooltipDim.height) <= scrollY + window.innerHeight - Cooltip.VIEWPORT_MARGIN &&
+            (left + tooltipDim.width) <= scrollX + window.innerWidth - Cooltip.VIEWPORT_MARGIN
+        );
+    }
+
+    #positionArrow(targetRect, position) {
+        this.#arrow.style.left = '';
+        this.#arrow.style.top = '';
+        this.#arrow.style.right = '';
+        this.#arrow.style.bottom = '';
+
+
+        const targetCenterX = targetRect.left + window.scrollX + targetRect.width / 2;
+        const targetCenterY = targetRect.top + window.scrollY + targetRect.height / 2;
+
+        const tooltipPageX = parseFloat(this.#tooltip.style.left);
+        const tooltipPageY = parseFloat(this.#tooltip.style.top);
+
+        const arrowOffsetX = targetCenterX - tooltipPageX;
+        const arrowOffsetY = targetCenterY - tooltipPageY;
+
+        switch (position) {
+            case 'top':
+                this.#arrow.style.left = `${arrowOffsetX - Cooltip.ARROW_SIZE}px`;
+                this.#arrow.style.bottom = `-${Cooltip.ARROW_SIZE}px`;
+                break;
+            case 'bottom':
+                this.#arrow.style.left = `${arrowOffsetX - Cooltip.ARROW_SIZE}px`;
+                this.#arrow.style.top = `-${Cooltip.ARROW_SIZE}px`;
+                break;
+            case 'left':
+                this.#arrow.style.top = `${arrowOffsetY - Cooltip.ARROW_SIZE}px`;
+                this.#arrow.style.right = `-${Cooltip.ARROW_SIZE}px`;
+                break;
+            case 'right':
+                this.#arrow.style.top = `${arrowOffsetY - Cooltip.ARROW_SIZE}px`;
+                this.#arrow.style.left = `-${Cooltip.ARROW_SIZE}px`;
+                break;
+        }
     }
 
     hideTooltip() {
-        this.sharedTooltip.classList.remove('shown');
-        this.currentElement = null;
+        if (this.#tooltip.style.visibility === 'visible') {
+            this.#tooltip.style.opacity = '0';
+            this.#tooltip.style.visibility = 'hidden';
+            this.#currentElement = null;
+
+            const baseClass = 'cooltip-tooltip';
+            this.#tooltip.className = baseClass;
+        }
     }
 }
 
