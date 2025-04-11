@@ -358,9 +358,9 @@ export class ProjectPage extends Page {
         if (rowsMap.size !== newRowsLen)
             this.gridManager.refreshCells();
 
-        if (this.gridManager.sourcesGrouping)
-            this.gridManager.gridApi.refreshClientSideRowModel('aggregate');
-        else
+        this.gridManager.gridApi.refreshClientSideRowModel('aggregate');
+
+        if (!this.gridManager.sourcesGrouping)
             this.gridManager.gridApi.refreshClientSideRowModel('sort');
     }
     #applyFullStaticDataToGrid(projectsInfo) {
