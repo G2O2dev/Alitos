@@ -143,12 +143,42 @@ export class AnalyticGrid {
                 headerName: 'Умное имя',
                 field: 'static.smartName',
                 minWidth: 220,
-                filter: false,
                 headerTooltip: 'Умное имя имеет ряд улучшений над названием и тегом:\n- Компилирует название и тег в формате: Название (Тег).\n- В конце ячейки отображается реальный оператор.\n- При клике на домен, он будет открыт\n- Если тег повторяет название он не будет отображён.',
                 cellRenderer: (p) => this.renderSmartnameForCell(p),
-                suppressColumnsToolPanel: true,
 
+                suppressColumnsToolPanel: true,
+                filterParams: {suppressMiniFilter: true},
+                filterValueGetter: params => params.data.static.operator,
                 headerComponent: SmartnameToggleHeader,
+
+                comparator: (valueA, valueB, nodeA, nodeB, isDescending) => {
+                    const isEmpty = (val) => val == null || String(val).trim() === '';
+
+                    const aIsNull = valueA == null;
+                    const bIsNull = valueB == null;
+                    if (aIsNull && bIsNull) return 0;
+                    if (aIsNull) return isDescending ? -1 : 1;
+                    if (bIsNull) return isDescending ? 1 : -1;
+
+                    const compareFields = (fieldA, fieldB) => {
+                        const fieldAEmpty = isEmpty(fieldA);
+                        const fieldBEmpty = isEmpty(fieldB);
+                        if (fieldAEmpty && fieldBEmpty) return 0;
+                        if (fieldAEmpty) return 1;
+                        if (fieldBEmpty) return -1;
+                        return String(fieldA).localeCompare(String(fieldB));
+                    };
+
+                    const aName = (valueA && typeof valueA === 'object') ? valueA.name : '';
+                    const bName = (valueB && typeof valueB === 'object') ? valueB.name : '';
+                    const nameComparison = compareFields(aName, bName);
+
+                    if (nameComparison !== 0) return nameComparison;
+
+                    const aTag = (valueA && typeof valueA === 'object') ? valueA.tag : '';
+                    const bTag = (valueB && typeof valueB === 'object') ? valueB.tag : '';
+                    return compareFields(aTag, bTag);
+                }
             },
             {
                 headerName: 'Название',
