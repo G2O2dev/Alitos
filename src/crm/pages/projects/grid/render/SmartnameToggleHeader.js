@@ -16,12 +16,12 @@ export class SmartnameToggleHeader {
         const button = this.eGui.querySelector('.ag-header-btn');
         button.addEventListener('click', () => {
             const api = this.params.api;
-            if (this.params.column.getColId() === 'tag') {
-                api.setColumnsVisible(['tag', 'name'], false);
-                api.setColumnsVisible(['smartName'], true);
+            if (this.params.column.getColId() === 'static.tag') {
+                api.setColumnsVisible(['static.tag', 'static.name'], false);
+                api.setColumnsVisible(['static.smartName'], true);
             } else {
-                api.setColumnsVisible(['smartName'], false);
-                api.setColumnsVisible(['tag', 'name'], true);
+                api.setColumnsVisible(['static.smartName'], false);
+                api.setColumnsVisible(['static.tag', 'static.name'], true);
             }
             api.sizeColumnsToFit();
         });
