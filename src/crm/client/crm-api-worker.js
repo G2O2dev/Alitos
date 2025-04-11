@@ -33,6 +33,8 @@ function parseSources(project) {
         case 'hosthost':
         case 'hosts':
             return project.content.replace(/"/g, "").split(",").map(s => s.trim());
+        case 'sms':
+            return [project.content];
     }
 }
 function calcPercent(total, value) {

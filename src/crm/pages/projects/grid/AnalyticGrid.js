@@ -312,7 +312,19 @@ export class AnalyticGrid {
         const afterPeriodsColumns = [
             this.#createNumberColumn('Лимит', 'static.limit', {
                 defaultOption: 'greaterThan',
-                filterOptions: ['equals', 'notEqual', 'greaterThan', 'lessThan', 'inRange'],
+                    filterOptions: [
+                        'equals',
+                        'notEqual',
+                        'greaterThan',
+                        'lessThan',
+                        'inRange',
+                        {
+                            displayKey: 'canGiveMoreThanLimit',
+                            displayName: 'Может давать больше',
+                            predicate: () => true,
+                            numberOfInputs: 0,
+                        },
+                    ],
             }, 'Лимит проекта. Если ячейка:\nГолубая — проект коснулся лимита 1 или 2 раза за последние 7 дней.\nЗелёная — проект коснулся лимита более 2 раз за последние 7 дней.', limitCellRenderer, limitCellClass),
         ];
 
@@ -856,6 +868,15 @@ export class AnalyticGrid {
     }
 
     #filter(node) {
+        const filterModel = this.gridApi.getFilterModel();
+        const filterType = filterModel["static.limit"];
+        const canGiveMoreFilter = filterType?.type === "canGiveMoreThanLimit" || filterType?.conditions?.some(c => c.type === "canGiveMoreThanLimit");
+
+        if (canGiveMoreFilter) {
+            if (!node.data.static.limitState && (!node.data.static.limitPotential || node.data.static.limitPotential < node.data.static.limit))
+                return false;
+        }
+
         const {data} = node;
 
         // Пропускаем удалённые элементы, если они не должны отображаться

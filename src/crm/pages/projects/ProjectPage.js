@@ -360,6 +360,8 @@ export class ProjectPage extends Page {
 
         if (this.gridManager.sourcesGrouping)
             this.gridManager.gridApi.refreshClientSideRowModel('aggregate');
+        else
+            this.gridManager.gridApi.refreshClientSideRowModel('sort');
     }
     #applyFullStaticDataToGrid(projectsInfo) {
         for (const staticData of projectsInfo.values()) {
@@ -402,6 +404,8 @@ export class ProjectPage extends Page {
                 project.static.limitState = "hint";
             }
         }
+        this.gridManager.gridApi.onFilterChanged();
+        this.gridManager.refreshCells();
 
         const managerInfo = await crmSession.getManagerInfo();
         if (managerInfo?.role === "Manager") {
@@ -417,9 +421,11 @@ export class ProjectPage extends Page {
             } catch (e) {
                 console.error(e);
             }
+
+            this.gridManager.gridApi.onFilterChanged();
+            this.gridManager.refreshCells();
         }
 
-        this.gridManager.refreshCells();
     }
 
     async loadAnalytics(deleted) {
