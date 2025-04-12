@@ -102,7 +102,7 @@ export class PeriodBtn extends EventBase{
      * This wrapper prevents the event object from leaking into openRangePicker logic if not needed.
      */
     #openRangePickerHandler() {
-        const periodPickModal = new PeriodPickModal({
+        this.periodPickModal = this.periodPickModal ?? new PeriodPickModal({
             callingElement: this.#element,
             onRangeSelected: (start, end) => {
                 const oldPeriod = { ...this.#period };
@@ -120,7 +120,7 @@ export class PeriodBtn extends EventBase{
             }
         });
 
-        periodPickModal.show();
+        this.periodPickModal.show();
     }
 
     #handleDeleteClick(event) {
