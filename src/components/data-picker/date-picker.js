@@ -1,7 +1,4 @@
-const MONTH_NAMES = [
-    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-];
+import {getMonthName, months} from "../../crm/utils/dates.js";
 
 export class DatePicker {
     constructor(container, config = {}) {
@@ -131,7 +128,7 @@ export class DatePicker {
     }
 
     getMonthYear(date) {
-        return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+        return `${months[date.getMonth()]} ${date.getFullYear()}`;
     }
 
     updateMonthDisplay() {
@@ -161,10 +158,6 @@ export class DatePicker {
         this.currentDate = newDate;
         this.updateMonthDisplay();
         this.renderCalendars();
-    }
-
-    getMonthName(date) {
-        return MONTH_NAMES[date.getMonth()];
     }
 
     updateYearButtons() {
@@ -221,7 +214,7 @@ export class DatePicker {
             const li = document.createElement('li');
             li.className = 'datepicker__month-item';
             const monthDate = new Date(this.currentDate.getFullYear(), i, 1);
-            li.textContent = this.getMonthName(monthDate);
+            li.textContent = getMonthName(monthDate);
             li.setAttribute('data-month', i);
 
             // Добавляем специальный класс для текущего реального месяца (если год совпадает)
@@ -263,7 +256,7 @@ export class DatePicker {
             const li = document.createElement('li');
             li.className = 'datepicker__month-item';
             const monthDate = new Date(this.currentDate.getFullYear(), i, 1);
-            li.textContent = this.getMonthName(monthDate);
+            li.textContent = getMonthName(monthDate);
             li.setAttribute('data-month', i);
 
             // Отмечаем текущий месяц (согласно реальной дате)

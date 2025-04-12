@@ -50,6 +50,24 @@ export class PeriodPickModal extends ModalWindow {
         }
         super.open();
     }
+    close() {
+        super.close();
+
+        this.onClosed = () => {
+            if (this.#observer) {
+                this.#observer.disconnect();
+                this.#observer = null;
+            }
+
+            window.removeEventListener('scroll', this._boundUpdatePositions);
+            window.removeEventListener('resize', this._boundUpdatePositions);
+
+            if (this.#clonedElement) {
+                this.#clonedElement.remove();
+                this.#clonedElement = null;
+            }
+        };
+    }
 
     #positionCloned() {
         const rect = this.#callingElement.getBoundingClientRect();
@@ -90,25 +108,6 @@ export class PeriodPickModal extends ModalWindow {
             this.#clonedElement.style.left = `${rect.left + window.scrollX}px`;
             this.positionModal();
         }
-    }
-
-    close() {
-        super.close();
-
-        this.onClosed = () => {
-            if (this.#observer) {
-                this.#observer.disconnect();
-                this.#observer = null;
-            }
-
-            window.removeEventListener('scroll', this._boundUpdatePositions);
-            window.removeEventListener('resize', this._boundUpdatePositions);
-
-            if (this.#clonedElement) {
-                this.#clonedElement.remove();
-                this.#clonedElement = null;
-            }
-        };
     }
 
     onRangeSelected(from, to) {

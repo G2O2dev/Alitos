@@ -91,7 +91,7 @@ export function formatSingleDate(date) {
  *
  * @param {Date} start – дата начала периода
  * @param {Date} end – дата конца периода
- * @returns {string} – человекочитаемое представление периода
+ * @returns {string | string[]} – человекочитаемое представление периода
  */
 export function formatPeriod(start, end) {
     function resetTime(date) {
@@ -99,43 +99,43 @@ export function formatPeriod(start, end) {
         d.setHours(0, 0, 0, 0);
         return d;
     }
+    function isFirstDayOfMonth(date) {
+        return date.getDate() === 1;
+    }
+    function isLastDayOfMonth(date) {
+        const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        return date.getDate() === lastDay;
+    }
 
     const today = resetTime(new Date());
     start = resetTime(start);
     end = resetTime(end);
 
-    // Если даты совпадают
+    // Если даты совпадают, возвращаем единичное форматирование
     if (start.getTime() === end.getTime()) {
         return formatSingleDate(start);
     }
 
-    // Если период равен полному месяцу
-    if (isFullMonth(start, end)) {
-        return getMonthName(start);
-    }
-
-    // Если одна из дат совпадает с сегодняшней и разница в днях от 2 до 30
-    if (start.getTime() === today.getTime() || end.getTime() === today.getTime()) {
-        const daysCount = daysDiff(start, end) + 1;
-        if (daysCount >= 2 && daysCount <= 30) {
-            return pluralize(daysCount, "Дн", "я", "я", "ей");
+    // Если период полностью охватывает месяц или месяцы
+    if (isFirstDayOfMonth(start) && isLastDayOfMonth(end)) {
+        // Если период охватывает один месяц, возвращаем его название
+        if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+            return getMonthName(start);
+        } else {
+            // Если период охватывает несколько месяцев, возвращаем оба названия месяцев через "/"
+            return getMonthName(start) + " / " + getMonthName(end);
         }
     }
 
-    // Разница в месяцах между датами
-    const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-    if (monthsDiff === 1) {
-        return "Месяц";
-    }
-    if (monthsDiff && monthsDiff < 12) {
-        return pluralize(monthsDiff, "Месяц", "а", "а", "ев");
-    }
-    if (monthsDiff === 12) {
-        return "Год";
+    // Если одна из дат совпадает с сегодняшней и разница в днях до 365
+    if (start.getTime() === today.getTime() || end.getTime() === today.getTime()) {
+        const daysCount = daysDiff(start, end) + 1;
+        if (daysCount <= 365) {
+            return pluralize(daysCount, "", "День", "Дня", "Дней");
+        }
     }
 
-    // Форматирование диапазона. Если год одинаков, можно не выводить год для каждой даты.
-    return start.getFullYear() === end.getFullYear()
-        ? `${formatDate(start, false)} / ${formatDate(end, false)}`
-        : `${formatDate(start)} / ${formatDate(end)}`;
+    // Форматирование диапазона: если год одинаков, можно не выводить год для обеих дат.
+    const sameYear = start.getFullYear() === end.getFullYear();
+    return formatDate(start, !sameYear) + ' / ' + formatDate(end, !sameYear);
 }

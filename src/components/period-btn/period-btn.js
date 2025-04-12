@@ -1,4 +1,4 @@
-import { formatPeriod } from "../../crm/utils/date.js";
+import { formatPeriod } from "../../crm/utils/dates.js";
 import { PeriodPickModal } from "../../crm/pages/projects/PeriodPickModal.js";
 import {EventBase} from "../../crm/utils/EventBase.js";
 
