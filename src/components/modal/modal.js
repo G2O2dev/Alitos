@@ -85,7 +85,7 @@ export class ModalWindow {
         this.#nonModalElements = [];
         Array.from(document.body.children).forEach(el => {
             if (el !== this.modalContainer) {
-                el.setAttribute('aria-hidden', 'true');
+                // el.setAttribute('aria-hidden', 'true');
                 el.style.pointerEvents = 'none';
                 this.#nonModalElements.push(el);
             }

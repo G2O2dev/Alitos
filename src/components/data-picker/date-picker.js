@@ -78,6 +78,12 @@ export class DatePicker {
         this.updateMonthDisplay();
     }
 
+    setAllowedRange(minDate, maxDate) {
+        this.config.allowedRange.minDate = minDate;
+        this.config.allowedRange.maxDate = maxDate;
+        this.renderCalendars();
+    }
+
     roundToDate(date) {
         return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }

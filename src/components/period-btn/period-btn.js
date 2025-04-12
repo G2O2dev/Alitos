@@ -5,7 +5,7 @@ import {EventBase} from "../../crm/utils/EventBase.js";
 export class PeriodBtn extends EventBase{
     #element;
     #period; // { start: Date, end: Date }
-    #config; // { allowDelete: boolean, datePickerConfig: object }
+    #config; // { allowDelete: boolean, datePickerConfig }
     #labelElem;
     #deleteBtn;
 
@@ -31,7 +31,7 @@ export class PeriodBtn extends EventBase{
         return this.#element;
     }
     get period() {
-        return { ...this.#period };
+        return this.#period;
     }
 
     setAllowDelete(allow) {
@@ -43,6 +43,10 @@ export class PeriodBtn extends EventBase{
     }
     setAllowedRange(minDate, maxDate) {
         this.#config.datePickerConfig.allowedRange = { minDate, maxDate };
+
+        if (this.periodPickModal) {
+            this.periodPickModal.periodPicker.datePicker.setAllowedRange(minDate, maxDate);
+        }
     }
 
     destroy() {
@@ -66,10 +70,9 @@ export class PeriodBtn extends EventBase{
         this.#deleteBtn.type = 'button';
         this.#deleteBtn.classList.add("period-btn__delete-btn");
         this.#deleteBtn.setAttribute('aria-label', 'Удалить период');
-        this.#deleteBtn.innerHTML = '&times;';
         this.#element.appendChild(this.#deleteBtn);
 
-        this.#updateDeleteButton(); // Set initial state
+        this.#updateDeleteButton();
     }
 
     /**
@@ -106,12 +109,12 @@ export class PeriodBtn extends EventBase{
             callingElement: this.#element,
             onRangeSelected: (start, end) => {
                 const oldPeriod = { ...this.#period };
-                const newPeriod = { start, end };
-                this.#period = newPeriod;
+                this.#period.start = start;
+                this.#period.end = end;
                 this.#labelElem.textContent = formatPeriod(start, end);
 
                 this._emit('change', {
-                    detail: { oldPeriod, newPeriod: { ...newPeriod } }
+                    oldPeriod, period: this.#period
                 });
             },
             datePickerConfig: {
@@ -125,7 +128,7 @@ export class PeriodBtn extends EventBase{
 
     #handleDeleteClick(event) {
         event.stopPropagation();
-        this._emit('delete');
+        this._emit('delete', { period: this.#period });
     }
     //#endregion
 }

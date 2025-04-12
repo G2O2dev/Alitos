@@ -2,7 +2,7 @@ import { ModalWindow } from "../../../components/modal/modal.js";
 import { AlitosPeriodPicker } from "../../../components/data-picker/altios-period-picker.js";
 
 export class PeriodPickModal extends ModalWindow {
-    #periodPicker;
+    periodPicker;
     #callingElement;
     #clonedElement;
     #observer;
@@ -11,7 +11,7 @@ export class PeriodPickModal extends ModalWindow {
         super();
         this.modalContainer.classList.add('period-pick-container');
         this.config = config;
-        this.#periodPicker = new AlitosPeriodPicker(this.contentElement, {
+        this.periodPicker = new AlitosPeriodPicker(this.contentElement, {
             mode: 'range',
             twoMonths: true,
             ...this.config.datePickerConfig,
@@ -73,6 +73,7 @@ export class PeriodPickModal extends ModalWindow {
         const rect = this.#callingElement.getBoundingClientRect();
 
         this.#clonedElement.style.position = 'absolute';
+        this.#clonedElement.style.height = rect.height + 'px';
         this.#clonedElement.style.top = `${rect.top + window.scrollY}px`;
         this.#clonedElement.style.left = `${rect.left + window.scrollX}px`;
         this.#clonedElement.style.pointerEvents = 'none';

@@ -624,20 +624,8 @@
 .page-header__right {
   display: flex;
   flex-direction: row;
-  gap: 15px;
+  gap: 10px;
 }
 
-.periods-settings {
-  display: flex;
-  flex-direction: row;
-  gap: 5px;
-
-  &__add-period {
-    &:after {
-      content: '';
-      mask-image: url("../assets/img/Plus.svg");
-    }
-  }
-}
 
 //#endregion

@@ -5,40 +5,34 @@ import crmSession from "../../client/crm-session.js";
 import {SearchComponent} from "../../../components/search/search.js";
 import {AdviceModal} from "./AdviceModal.js";
 import adviceSystem from "../../client/advices.js";
-import {PeriodBtn} from "../../../components/period-btn/period-btn.js";
 import {TaskTracker} from "../../../lib/task-tracker.js";
 import {Loader} from "../../../components/loader/loader.js";
 import {ProjectFastActions} from "./ProjectFastActions.js";
+import {DatesSelector} from "../../../components/dates-selector/dates-selector.js";
+import {formatPeriod} from "../../utils/dates.js";
 
 export class ProjectPage extends Page {
-    #periods;
-    #periodsEl;
-    #periodsAddBtn;
+    #periodsSelector;
     #deletedLoaded = false;
     #usedCrmColumns;
-
     #adviceModal;
-    #collectionsModal;
 
     taskTracker = new TaskTracker();
 
     constructor() {
         super('projects');
         this.loader = new Loader('.project-loader');
-        this.#periods = this.#getDefaultPeriods();
+        this.#setupPeriods();
+
         this.gridManager = new AnalyticGrid({
             selector: "#grid",
-            periods: this.#periods,
+            periods: this.#periodsSelector.getPeriods(),
         });
 
         this.#setupFastActions();
-
         this.#setupEvents();
-
-        this.#setupPeriodBtns();
         this.#initSearch();
-
-        this.#startLoading();
+        this.#loadData();
     }
 
     #setupFastActions() {
@@ -161,7 +155,7 @@ export class ProjectPage extends Page {
         });
     }
 
-    #startLoading() {
+    #loadData() {
         this.taskTracker.addTasks([
             {
                 method: () => this.loadAnalytics(false),
@@ -184,35 +178,6 @@ export class ProjectPage extends Page {
             //     info: {loaderText: 'Думаю над рекомендациями'}
             // },
         ]);
-    }
-
-    async #setupPeriodBtns() {
-        this.#periodsEl = document.querySelector('.periods-settings');
-        this.#periodsAddBtn = document.querySelector('.periods-settings__add-period');
-        let btns = [];
-
-        for (let i = 0; i < this.#periods.length; i++) {
-            const period = this.#periods[i];
-
-            const periodBtn = document.createElement("div");
-            periodBtn.classList.add("periods-settings__period");
-
-            const btn = new PeriodBtn(periodBtn, period, {
-                onChanged: async (newPeriodData) => await this.#changePeriod(i, newPeriodData),
-            });
-
-            btns.push(btn);
-            this.#periodsEl.appendChild(periodBtn);
-
-            crmSession.getClient().then(client => {
-                const now = new Date();
-                const createdAt = new Date(Number(client.created_at) * 1000);
-                createdAt.setHours(0, 0, 0, 0);
-
-
-                btns.forEach(btn => btn.setAllowedRange(createdAt, now));
-            })
-        }
     }
 
     #setupEvents() {
@@ -282,49 +247,60 @@ export class ProjectPage extends Page {
         console.error(err);
     }
 
-
-    #getDefaultPeriods() {
+    async #setupPeriods() {
         const now = new Date();
-        const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-        const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
         const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-        now.setHours(0, 0, 0, 0);
-        weekAgo.setHours(0, 0, 0, 0);
 
-        return [
-            {start: weekAgo, end: now, name: "Неделя"}
+        const defaultPeriods = [
+            {start: weekAgo, end: now}
         ];
+
+        this.#periodsSelector = new DatesSelector('.periods-settings', {
+            initialDates: defaultPeriods,
+            maxDates: 2,
+            datePickerConfig: {
+                allowedRange: {
+                    maxDate: now,
+                }
+            }
+        });
+
+        crmSession.getClient().then(client => {
+            const createdAt = new Date(Number(client.created_at) * 1000);
+            createdAt.setHours(0, 0, 0, 0);
+
+            this.#periodsSelector.setAllowedRange(createdAt, now);
+        });
+
+        // this.#periodsSelector.on("period:added", ({details}) => {
+        //     this.#changePeriod(details.period);
+        // });
+        this.#periodsSelector.on("period:changed", ({detail}) => this.#changePeriod(detail.period));
+        // this.#periodsSelector.on("period:deleted", (e) => {
+        //     console.log("period:deleted");
+        // });
     }
 
-    #deletePeriod(index) {
-
-    }
-
-    async #changePeriod(index, newPeriodData) {
-        this.#periods[index] = {start: newPeriodData.start, end: newPeriodData.end, name: newPeriodData.name};
-
-        const period = this.#periods[index];
-
+    #periodsTasks = new Map();
+    async #changePeriod(period) {
         if (period.analytic) this.taskTracker.cancelTask(period.analytic.task.id);
+
+        const periodIndex = this.#periodsSelector.getPeriods().findIndex(p => p.id === period.id);
 
         period.analytic = this.taskTracker.addTask({
             method: async () => {
                 const analytic = [];
-                analytic.push(...await crmSession.getAnalytic(period.start, period.to, false));
+                analytic.push(...await crmSession.getAnalytic(period.start, period.end, false));
                 if (this.#deletedLoaded) {
-                    analytic.push(...await crmSession.getAnalytic(period.start, period.to, true));
+                    analytic.push(...await crmSession.getAnalytic(period.start, period.end, true));
                 }
 
                 return analytic;
             },
-            info: {loaderText: `Загружаю данные за ${period.name.toLowerCase()}`},
-            callback: analytic => this.#applyPeriodToGrid(analytic, index),
+            info: {loaderText: `Загружаю данные за ${formatPeriod(period.start, period.end)}`},
+            callback: analytic => this.#applyPeriodToGrid(analytic, periodIndex),
             parallel: true,
         });
-    }
-
-    #addPeriod(start, end) {
-
     }
 
     async #applyPeriodToGrid(analytic, periodIndex) {
@@ -425,9 +401,10 @@ export class ProjectPage extends Page {
 
     async loadAnalytics(deleted) {
         let haveNewData = false;
+        const periods = this.#periodsSelector.getPeriods();
 
-        for (let i = 0; i < this.#periods.length; i++) {
-            const period = this.#periods[i];
+        for (let i = 0; i < periods.length; i++) {
+            const period = periods[i];
 
             const analytic = await crmSession.getAnalytic(period.start, period.end, deleted);
             if (analytic.size) {

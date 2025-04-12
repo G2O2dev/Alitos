@@ -4,7 +4,7 @@
   align-items: center;
   overflow: hidden;
 
-  gap: 10px;
+  gap: 5px;
   padding: 0 8px;
 
   height: 34px;
@@ -17,7 +17,7 @@
   transition: background-color 0.25s ease-out, border-color 0.25s ease-out, transform 0.25s ease-out;
 
   &--deletable {
-    padding: 0 4px 0 8px;
+    padding: 0 0 0 8px;
   }
 
   &:hover {
@@ -43,7 +43,12 @@
     height: 26px;
     width: 26px;
 
-    border-radius: var(--corner-radius);
+    border: none;
+    outline: none;
+
+    background-color: transparent;
+    border-left: 1px solid var(--color-gray-300);
+    box-sizing: border-box;
 
     &::after {
       content: "";
@@ -59,7 +64,11 @@
     }
 
     &:hover {
-      background-color: var(--color-gray-100);
+      background-color: var(--color-bg);
+
+      &::after {
+        background-color: var(--color-gray-900);
+      }
     }
   }
 }

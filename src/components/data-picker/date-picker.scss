@@ -148,7 +148,6 @@
   &.range-end-selecting,
   &.range-start-selecting {
     color: var(--color-text-primary);
-    font-weight: 500;
 
     &::before {
       content: '';
@@ -160,6 +159,10 @@
       height: 26px;
       background-color: var(--color-gray-100);
     }
+  }
+
+  &.range-start, &.range-end {
+      font-weight: 500;
   }
 
   &.range-start::after, &.range-end::after, &.selected::after, &.range-middle::after {
