@@ -281,13 +281,13 @@ export class ProjectPage extends Page {
         // });
     }
 
-    #periodsTasks = new Map();
+    #periodsTasks = [];
     async #changePeriod(period) {
-        if (period.analytic) this.taskTracker.cancelTask(period.analytic.task.id);
-
         const periodIndex = this.#periodsSelector.getPeriods().findIndex(p => p.id === period.id);
+        const periodTask = this.#periodsTasks[periodIndex];
+        if (periodTask) this.taskTracker.cancelTask(periodTask);
 
-        period.analytic = this.taskTracker.addTask({
+        this.#periodsTasks[periodIndex] = this.taskTracker.addTask({
             method: async () => {
                 const analytic = [];
                 analytic.push(...await crmSession.getAnalytic(period.start, period.end, false));
