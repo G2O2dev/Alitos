@@ -197,12 +197,7 @@ export class ProjectPage extends Page {
             const periodBtn = document.createElement("div");
             periodBtn.classList.add("periods-settings__period");
 
-            const btn = new PeriodBtn(periodBtn, {
-                firstDate: period.from,
-                secondDate: period.to,
-                allowDelete: false,
-
-                onDelete: () => this.#deletePeriod(i),
+            const btn = new PeriodBtn(periodBtn, period, {
                 onChanged: async (newPeriodData) => await this.#changePeriod(i, newPeriodData),
             });
 
@@ -297,7 +292,7 @@ export class ProjectPage extends Page {
         weekAgo.setHours(0, 0, 0, 0);
 
         return [
-            {from: weekAgo, to: now, name: "Неделя"}
+            {start: weekAgo, end: now, name: "Неделя"}
         ];
     }
 
@@ -306,7 +301,7 @@ export class ProjectPage extends Page {
     }
 
     async #changePeriod(index, newPeriodData) {
-        this.#periods[index] = {from: newPeriodData.from, to: newPeriodData.to, name: newPeriodData.name};
+        this.#periods[index] = {start: newPeriodData.start, end: newPeriodData.end, name: newPeriodData.name};
 
         const period = this.#periods[index];
 
@@ -315,9 +310,9 @@ export class ProjectPage extends Page {
         period.analytic = this.taskTracker.addTask({
             method: async () => {
                 const analytic = [];
-                analytic.push(...await crmSession.getAnalytic(period.from, period.to, false));
+                analytic.push(...await crmSession.getAnalytic(period.start, period.to, false));
                 if (this.#deletedLoaded) {
-                    analytic.push(...await crmSession.getAnalytic(period.from, period.to, true));
+                    analytic.push(...await crmSession.getAnalytic(period.start, period.to, true));
                 }
 
                 return analytic;
@@ -328,7 +323,7 @@ export class ProjectPage extends Page {
         });
     }
 
-    #addPeriod(from, to) {
+    #addPeriod(start, end) {
 
     }
 
@@ -434,7 +429,7 @@ export class ProjectPage extends Page {
         for (let i = 0; i < this.#periods.length; i++) {
             const period = this.#periods[i];
 
-            const analytic = await crmSession.getAnalytic(period.from, period.to, deleted);
+            const analytic = await crmSession.getAnalytic(period.start, period.end, deleted);
             if (analytic.size) {
                 await this.#applyPeriodToGrid(analytic, i);
                 haveNewData = true;

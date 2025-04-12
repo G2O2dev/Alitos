@@ -17,14 +17,20 @@ export class DatePicker {
             config
         );
 
-        this.currentDate = new Date();
-        this.openMonth = this.config.openMonth || new Date();
-        this.selectedDate = null;
-
         if (this.config.mode === 'range' && this.config.defaultRange) {
-            this.rangeStart = this.roundToDate(this.config.defaultRange.start);
-            this.rangeEnd = this.roundToDate(this.config.defaultRange.end);
+            this.rangeStart = this.config.defaultRange.start ? this.roundToDate(this.config.defaultRange.start) : null;
+            this.rangeEnd = this.config.defaultRange.end ? this.roundToDate(this.config.defaultRange.end) : null;
         }
+
+        if (this.config.mode === 'range' && (this.rangeStart || this.rangeEnd)) {
+            const baseDate = this.rangeEnd || this.rangeStart;
+            this.openMonth = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+        } else {
+            this.openMonth = this.config.openMonth ? new Date(this.config.openMonth) : new Date();
+        }
+
+        this.currentDate = new Date(this.openMonth.getFullYear(), this.openMonth.getMonth(), 1);
+        this.selectedDate = null;
         this.isSelectingRange = false;
 
         this.build();
@@ -161,6 +167,26 @@ export class DatePicker {
         return MONTH_NAMES[date.getMonth()];
     }
 
+    updateYearButtons() {
+        const prevYearBtn = this.monthSelectionOverlay.querySelector('.datepicker__nav-btn--prev');
+        const nextYearBtn = this.monthSelectionOverlay.querySelector('.datepicker__nav-btn--next');
+
+        const prevYear = this.currentDate.getFullYear() - 1;
+        const nextYear = this.currentDate.getFullYear() + 1;
+
+        if (this.isYearDisabled(prevYear)) {
+            prevYearBtn.classList.add('disabled');
+        } else {
+            prevYearBtn.classList.remove('disabled');
+        }
+
+        if (this.isYearDisabled(nextYear)) {
+            nextYearBtn.classList.add('disabled');
+        } else {
+            nextYearBtn.classList.remove('disabled');
+        }
+    }
+
     showMonthSelection() {
         if (this.monthSelectionOverlay) {
             this.root.removeChild(this.monthSelectionOverlay);
@@ -197,6 +223,13 @@ export class DatePicker {
             const monthDate = new Date(this.currentDate.getFullYear(), i, 1);
             li.textContent = this.getMonthName(monthDate);
             li.setAttribute('data-month', i);
+
+            // Добавляем специальный класс для текущего реального месяца (если год совпадает)
+            const today = new Date();
+            if (today.getFullYear() === this.currentDate.getFullYear() && today.getMonth() === i) {
+                li.classList.add('datepicker__month-item--current');
+            }
+
             if (this.isMonthDisabled(monthDate)) {
                 li.classList.add('disabled');
             } else {
@@ -220,26 +253,6 @@ export class DatePicker {
         this.updateYearButtons();
     }
 
-    updateYearButtons() {
-        const prevYearBtn = this.monthSelectionOverlay.querySelector('.datepicker__nav-btn--prev');
-        const nextYearBtn = this.monthSelectionOverlay.querySelector('.datepicker__nav-btn--next');
-
-        const prevYear = this.currentDate.getFullYear() - 1;
-        const nextYear = this.currentDate.getFullYear() + 1;
-
-        if (this.isYearDisabled(prevYear)) {
-            prevYearBtn.classList.add('disabled');
-        } else {
-            prevYearBtn.classList.remove('disabled');
-        }
-
-        if (this.isYearDisabled(nextYear)) {
-            nextYearBtn.classList.add('disabled');
-        } else {
-            nextYearBtn.classList.remove('disabled');
-        }
-    }
-
     updateMonthSelection() {
         const yearDisplay = this.monthSelectionOverlay.querySelector('.datepicker__year-display');
         yearDisplay.textContent = this.currentDate.getFullYear();
@@ -252,6 +265,13 @@ export class DatePicker {
             const monthDate = new Date(this.currentDate.getFullYear(), i, 1);
             li.textContent = this.getMonthName(monthDate);
             li.setAttribute('data-month', i);
+
+            // Отмечаем текущий месяц (согласно реальной дате)
+            const today = new Date();
+            if (today.getFullYear() === this.currentDate.getFullYear() && today.getMonth() === i) {
+                li.classList.add('datepicker__month-item--current');
+            }
+
             if (this.isMonthDisabled(monthDate)) {
                 li.classList.add('disabled');
             } else {
@@ -266,7 +286,6 @@ export class DatePicker {
             }
             list.appendChild(li);
         }
-
         this.updateYearButtons();
     }
 

@@ -124,20 +124,8 @@ export class AnalyticGrid {
                 maxWidth: 90,
                 resizable: false,
                 filter: false,
-                // tooltipValueGetter: params => this.#getTooltip(params),
                 suppressColumnsToolPanel: true,
                 suppressMovable: true,
-            },
-            {
-                headerName: 'Оператор',
-                field: 'static.operator',
-                minWidth: 44,
-                maxWidth: 44,
-                resizable: false,
-                filterParams: {suppressMiniFilter: true},
-                headerTooltip: 'Оператор.\nB1 - Ростелеком\nB2 - Билайн\nB3 - МТС\nB4 - Мегафон',
-                hide: true,
-                suppressColumnsToolPanel: true,
             },
             {
                 headerName: 'Умное имя',
@@ -169,15 +157,10 @@ export class AnalyticGrid {
                         return String(fieldA).localeCompare(String(fieldB));
                     };
 
-                    const aName = (valueA && typeof valueA === 'object') ? valueA.name : '';
-                    const bName = (valueB && typeof valueB === 'object') ? valueB.name : '';
-                    const nameComparison = compareFields(aName, bName);
-
+                    const nameComparison = compareFields(valueA ? valueA.name : '', valueB ? valueB.name : '');
                     if (nameComparison !== 0) return nameComparison;
 
-                    const aTag = (valueA && typeof valueA === 'object') ? valueA.tag : '';
-                    const bTag = (valueB && typeof valueB === 'object') ? valueB.tag : '';
-                    return compareFields(aTag, bTag);
+                    return compareFields(valueA ? valueA.tag : '', valueB ? valueB.tag : '');
                 }
             },
             {
@@ -262,7 +245,6 @@ export class AnalyticGrid {
             return params.data.static.regions_reverse ? "project-region-reverse" : "project-region";
         }
 
-        // Скрытые колонки
         const hiddenColumns = [
             // this.#createNumberColumn('Номеров сегодня', 'today_numbers', { defaultOption: 'greaterThan' }, 'Номеров получено сегодня', null, null, true),
             {

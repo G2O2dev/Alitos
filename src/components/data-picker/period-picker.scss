@@ -1,15 +1,15 @@
 .period-picker {
   display: flex;
   flex-direction: row;
-  gap: 5px;
+  gap: 4px;
 
-  .sidebar {
+  .period-picker__sidebar {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     order: -1;
 
-    padding: 10px;
+    padding: 8px;
     box-sizing: border-box;
 
     width: 120px;
@@ -18,22 +18,40 @@
     border: 1px solid var(--color-gray-500);
     border-radius: var(--corner-radius);
 
-    &__button {
-      cursor: pointer;
-      color: var(--color-text-secondary);
-      width: 100%;
-      height: 26px;
-      padding-left: 8px;
-      box-sizing: border-box;
-      text-align: left;
-      border: none;
-      background-color: transparent;
-      border-radius: var(--corner-radius);
 
-      &:hover {
-        background-color: var(--color-gray-200);
-        color: var(--color-text-primary);
+    @keyframes sidebarFadeSlide {
+      from {
+        opacity: 0;
+        transform: translateX(45px);
       }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    animation: sidebarFadeSlide .4s ease-out;
+    animation-fill-mode: both;
+  }
+
+  .period-picker__button {
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    width: 100%;
+    height: 26px;
+    padding-left: 6px;
+    box-sizing: border-box;
+    text-align: left;
+
+    background-color: transparent;
+    border-radius: 6px; // Bit less than default
+
+    border: 1px solid transparent;
+
+    &:hover {
+      border: 1px solid var(--color-gray-300);
+      background-color: var(--color-gray-200);
+      color: var(--color-text-primary);
     }
   }
 }

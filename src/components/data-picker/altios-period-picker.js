@@ -23,7 +23,7 @@ export class AlitosPeriodPicker {
         });
 
         this.sidebar = document.createElement('div');
-        this.sidebar.className = 'sidebar';
+        this.sidebar.className = 'period-picker__sidebar';
         this.periodPicker.appendChild(this.sidebar);
 
         const periods = [
@@ -48,7 +48,7 @@ export class AlitosPeriodPicker {
 
         periods.forEach(period => {
             const button = document.createElement('button');
-            button.className = 'sidebar__button';
+            button.className = 'period-picker__button';
             button.textContent = period.label;
             button.addEventListener('click', () => {
                 const range = period.getRange();

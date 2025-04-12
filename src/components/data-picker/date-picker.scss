@@ -1,54 +1,58 @@
 @import "period-picker";
 
-//#region Main
 .datepicker {
   position: relative;
   overflow: hidden;
+
   display: flex;
   flex-direction: column;
+
   gap: 5px;
-  border-radius: 8px;
+  padding: 8px;
+
+  border-radius: var(--corner-radius);
   border: 1px solid var(--color-gray-500);
   background-color: var(--color-bg);
-  padding: 10px;
 
-  &__months-wrapper,
-  &__year-display {
+  &__months-wrapper, &__year-display {
     cursor: pointer;
     position: absolute;
     display: flex;
     align-items: center;
+
     gap: 30px;
     height: 26px;
     padding: 0 8px;
-    border-radius: var(--corner-radius);
-    color: var(--color-text-secondary);
+
     font-size: 14px;
-    transition: background-color 0.2s ease-out, color 0.2s ease-out;
+    color: var(--color-text-secondary);
+
+    border-radius: var(--corner-radius);
+    transition: background-color .2s ease-out, color .2s ease-out;
 
     &:hover {
       color: var(--color-text-primary);
       background-color: var(--color-gray-200);
     }
   }
-}
 
-.month-nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  *:focus, &:focus {
+    outline: none;
+  }
 }
-//#endregion
 
 //#region Navigation
 .datepicker__nav-btn {
   cursor: pointer;
+
   width: 26px;
   height: 26px;
+
   background: none;
-  border: none;
+  border: 1px solid transparent;
+  box-sizing: border-box;
   border-radius: var(--corner-radius);
-  transition: background-color 0.2s ease-out;
+  transition: background-color .2s ease-out, border-color .2s ease-out, transform .2s ease-out;
 
   &:active {
     transform: scale(0.9);
@@ -73,6 +77,7 @@
 
   &:hover {
     background-color: var(--color-gray-200);
+    border-color: var(--color-gray-300);
 
     &::after {
       background-color: var(--color-gray-900);
@@ -84,13 +89,14 @@
   }
 }
 
-.datepicker-header,
-.datepicker__month-selection-header {
+.datepicker-header, .datepicker__month-selection-header {
   position: relative;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
+
+  user-select: none;
 }
 //#endregion
 
@@ -98,17 +104,13 @@
 .datepicker__calendars {
   display: flex;
   flex-direction: row;
-  gap: 20px;
+  gap: 16px;
 }
 
 .datepicker__calendar {
   display: grid;
   grid-template-columns: repeat(7, 32px);
   grid-template-rows: 22px repeat(6, 32px);
-}
-
-.datepicker__calendar-header {
-  display: flex;
 }
 
 .datepicker__cell {
@@ -130,6 +132,11 @@
   }
 }
 
+.datepicker__month-item--current, .datepicker__day.today {
+  color: var(--color-text-green) !important;
+  font-weight: 500;
+}
+
 .datepicker__day {
   position: relative;
   z-index: 2;
@@ -141,11 +148,13 @@
   &.range-end-selecting,
   &.range-start-selecting {
     color: var(--color-text-primary);
+    font-weight: 500;
 
     &::before {
       content: '';
       display: block;
       position: absolute;
+
       z-index: -2;
       width: 100%;
       height: 26px;
@@ -157,10 +166,6 @@
     background: var(--color-gray-300) !important;
 
     box-shadow: 0 0 5px 0 var(--color-bg);
-  }
-
-  &.today {
-    color: var(--color-text-green);
   }
 
   &.range-end-selecting::before,
@@ -210,7 +215,7 @@
   height: 100%;
   left: 0;
   top: 0;
-  padding: 10px;
+  padding: 8px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -233,8 +238,9 @@
   font-size: 14px;
   color: var(--color-text-secondary);
   list-style-type: none;
-  padding: 5px 8px;
+  padding: 4px 8px;
   box-sizing: border-box;
+
   border-radius: var(--corner-radius);
 
   &:hover {
@@ -243,12 +249,10 @@
   }
 
   &.disabled {
+    pointer-events: none;
+
     color: var(--color-text-quaternary);
     cursor: default;
-
-    &:hover {
-      background-color: transparent;
-    }
   }
 }
 

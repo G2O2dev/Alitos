@@ -1,155 +1,131 @@
+import { formatPeriod } from "../../crm/utils/date.js";
 import { PeriodPickModal } from "../../crm/pages/projects/PeriodPickModal.js";
-import { pluralize } from "../../crm/utils/helpers.js";
+import {EventBase} from "../../crm/utils/EventBase.js";
 
-export class PeriodBtn {
-    static months = [
-        "Январь", "Февраль", "Март", "Апрель",
-        "Май", "Июнь", "Июль", "Август",
-        "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
-    ];
-    static msInDay = 24 * 60 * 60 * 1000;
+export class PeriodBtn extends EventBase{
+    #element;
+    #period; // { start: Date, end: Date }
+    #config; // { allowDelete: boolean, datePickerConfig: object }
+    #labelElem;
+    #deleteBtn;
 
-    constructor(element, config) {
-        this.element = element;
-        this.config = config;
-        this.defaultRange = {
-            start: config.firstDate,
-            end: config.secondDate
+    #boundOpenRangePicker = this.#openRangePickerHandler.bind(this);
+    #boundHandleDeleteClick = this.#handleDeleteClick.bind(this);
+
+    constructor(element, initialPeriod, config = {}) {
+        super();
+
+        this.#element = element;
+        this.#period = { ...(initialPeriod || { start: new Date(), end: new Date() }) };
+        this.#config = {
+            allowDelete: false,
+            datePickerConfig: {},
+            ...config
         };
 
-        this.render();
-        this.#setupEvents();
+        this.#render();
+        this.#setupDOMEvents();
     }
 
-    #formatDate(date, showYear = true) {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        if (showYear) {
-            const year = String(date.getFullYear()).slice(-2);
-            return `${day}.${month}.${year}`;
-        }
-        return `${day}.${month}`;
+    get element() {
+        return this.#element;
+    }
+    get period() {
+        return { ...this.#period };
     }
 
-    #getMonthName(date) {
-        return PeriodBtn.months[date.getMonth()];
+    setAllowDelete(allow) {
+        const shouldAllow = Boolean(allow);
+        if (this.#config.allowDelete === shouldAllow) return;
+
+        this.#config.allowDelete = shouldAllow;
+        this.#updateDeleteButton();
+    }
+    setAllowedRange(minDate, maxDate) {
+        this.#config.datePickerConfig.allowedRange = { minDate, maxDate };
     }
 
-    #isFullMonth(start, end) {
-        const firstDay = 1;
-        const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
-        return start.getDate() === firstDay && end.getDate() === lastDay &&
-            start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+    destroy() {
+        this.#element.removeEventListener('click', this.#boundOpenRangePicker);
+        this.#deleteBtn?.removeEventListener('click', this.#boundHandleDeleteClick);
+
+        this.#element.remove();
     }
 
-    #daysDiff(start, end) {
-        return Math.round((end - start) / PeriodBtn.msInDay);
+    //#region Private
+    #render() {
+        this.#element.classList.add("period-btn");
+        this.#element.innerHTML = ''; // Clear previous content
+
+        this.#labelElem = document.createElement('p');
+        this.#labelElem.classList.add("period-btn__label");
+        this.#labelElem.textContent = formatPeriod(this.#period.start, this.#period.end);
+        this.#element.appendChild(this.#labelElem);
+
+        this.#deleteBtn = document.createElement('button');
+        this.#deleteBtn.type = 'button';
+        this.#deleteBtn.classList.add("period-btn__delete-btn");
+        this.#deleteBtn.setAttribute('aria-label', 'Удалить период');
+        this.#deleteBtn.innerHTML = '&times;';
+        this.#element.appendChild(this.#deleteBtn);
+
+        this.#updateDeleteButton(); // Set initial state
     }
 
-    #formatSingleDate(date) {
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        const diffDays = this.#daysDiff(today, target);
+    /**
+     * Updates the visibility and DOM event listener for the delete button.
+     */
+    #updateDeleteButton() {
+        if (!this.#deleteBtn) return;
 
-        if (diffDays === 0) {
-            return "Сегодня";
-        } else if (diffDays === -1) {
-            return "Вчера";
-        } else if (diffDays === -2) {
-            return "Позавчера";
+        if (this.#config.allowDelete) {
+            this.#element.classList.add("period-btn--deletable");
+            this.#deleteBtn.style.display = '';
+            this.#deleteBtn.removeEventListener('click', this.#boundHandleDeleteClick); // Prevent duplicates
+            this.#deleteBtn.addEventListener('click', this.#boundHandleDeleteClick);
+        } else {
+            this.#element.classList.remove("period-btn--deletable");
+            this.#deleteBtn.style.display = 'none';
+            this.#deleteBtn.removeEventListener('click', this.#boundHandleDeleteClick);
         }
-        const showYear = (date.getFullYear() !== now.getFullYear());
-        return this.#formatDate(date, showYear);
     }
 
-    #formatPeriod(start, end) {
-        const resetTime = date => {
-            const d = new Date(date);
-            d.setHours(0, 0, 0, 0);
-            return d;
-        };
-
-        const today = resetTime(new Date());
-        start = resetTime(start);
-        end = resetTime(end);
-
-        if (start.getTime() === end.getTime()) {
-            return this.#formatSingleDate(start);
-        }
-
-        if (this.#isFullMonth(start, end)) {
-            return this.#getMonthName(start);
-        }
-
-        if (start.getTime() === today.getTime() || end.getTime() === today.getTime()) {
-            const daysCount = this.#daysDiff(start, end) + 1;
-            if (daysCount >= 2 && daysCount <= 30) {
-                return pluralize(daysCount, "Дн", "я", "я", "ей");
-            }
-        }
-
-        const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-        if (monthsDiff === 1) {
-            return "Месяц";
-        }
-        if (monthsDiff && monthsDiff < 12) {
-            return pluralize(monthsDiff, "Месяц", "а", "а", "ев");
-        }
-        if (monthsDiff === 12) {
-            return "Год";
-        }
-
-        return start.getFullYear() === end.getFullYear()
-            ? `${this.#formatDate(start, false)} / ${this.#formatDate(end, false)}`
-            : `${this.#formatDate(start)} / ${this.#formatDate(end)}`;
+    /**
+     * Sets up initial DOM event listeners for user interaction.
+     */
+    #setupDOMEvents() {
+        this.#element.addEventListener('click', this.#boundOpenRangePicker);
     }
 
-    #setupEvents() {
-        if (this.config.allowDelete) {
-            this.deleteBtn.addEventListener('click', () => this.config.onDelete());
-        }
-        this.element.addEventListener('click', () => this.openRangePicker());
-    }
-
-    setAllowedRange(start, end) {
-        this.config.allowedRange = { minDate: start, maxDate: end };
-    }
-
-    openRangePicker() {
-        const datePicker = document.createElement('div');
-        datePicker.classList.add('period-btn__range-picker');
-
+    /**
+     * Handles the click on the main element to open the picker.
+     * This wrapper prevents the event object from leaking into openRangePicker logic if not needed.
+     */
+    #openRangePickerHandler() {
         const periodPickModal = new PeriodPickModal({
-            callingElement: this.element,
+            callingElement: this.#element,
             onRangeSelected: (start, end) => {
-                this.labelElem.textContent = this.#formatPeriod(start, end);
-                this.defaultRange = { start, end };
-                this.config.onChanged({
-                    from: start,
-                    to: end,
-                    name: this.labelElem.textContent,
+                const oldPeriod = { ...this.#period };
+                const newPeriod = { start, end };
+                this.#period = newPeriod;
+                this.#labelElem.textContent = formatPeriod(start, end);
+
+                this._emit('change', {
+                    detail: { oldPeriod, newPeriod: { ...newPeriod } }
                 });
             },
-            datePickerConfig: { ...this.config, defaultRange: this.defaultRange }
+            datePickerConfig: {
+                ...this.#config.datePickerConfig,
+                defaultRange: { start: this.#period.start, end: this.#period.end }
+            }
         });
 
         periodPickModal.show();
     }
 
-    render() {
-        this.element.classList.add("period-btn");
-
-        this.labelElem = document.createElement('p');
-        this.labelElem.classList.add("period-btn__label");
-        this.labelElem.textContent = this.#formatPeriod(this.config.firstDate, this.config.secondDate);
-        this.element.appendChild(this.labelElem);
-
-        if (this.config.allowDelete) {
-            this.deleteBtn = document.createElement('div');
-            this.deleteBtn.classList.add("period-btn__delete-btn");
-            this.element.classList.add("period-btn--deletable");
-            this.element.appendChild(this.deleteBtn);
-        }
+    #handleDeleteClick(event) {
+        event.stopPropagation();
+        this._emit('delete');
     }
+    //#endregion
 }
