@@ -31,7 +31,6 @@ class Cooltip {
 
         this.#arrow = document.createElement('div');
         this.#arrow.className = 'cooltip-tooltip__arrow';
-
         this.#arrow.style.position = 'absolute';
         this.#arrow.style.width = '0';
         this.#arrow.style.height = '0';
@@ -48,12 +47,26 @@ class Cooltip {
         if (element.__cooltipAttached) return;
         element.__cooltipAttached = true;
 
-        const show = () => this.showTooltip(element);
-        const hide = () => this.hideTooltip();
+        const showDelayed = (e) => {
+            if (e.type === 'mouseenter') {
+                const delay = parseInt(element.dataset.tooltipDelay) || 0;
+                element.__cooltipTimeout = setTimeout(() => this.showTooltip(element), delay);
+            } else {
+                this.showTooltip(element);
+            }
+        };
 
-        element.addEventListener('mouseenter', show);
+        const hide = () => {
+            if (element.__cooltipTimeout) {
+                clearTimeout(element.__cooltipTimeout);
+                element.__cooltipTimeout = null;
+            }
+            this.hideTooltip();
+        };
+
+        element.addEventListener('mouseenter', showDelayed);
         element.addEventListener('mouseleave', hide);
-        element.addEventListener('focus', show);
+        element.addEventListener('focus', showDelayed);
         element.addEventListener('blur', hide);
     }
 
@@ -90,8 +103,8 @@ class Cooltip {
         const arrowClone = clone.querySelector('.cooltip-tooltip__arrow');
 
         let contentContainer = null;
-        for(let child of clone.childNodes) {
-            if(child !== arrowClone) {
+        for (let child of clone.childNodes) {
+            if (child !== arrowClone) {
                 contentContainer = child;
                 break;
             }
@@ -133,7 +146,6 @@ class Cooltip {
         this.#arrow.style.width = '0';
         this.#arrow.style.height = '0';
         this.#tooltip.appendChild(this.#arrow);
-
 
         this.#tooltip.className = 'cooltip-tooltip';
         if (customClass) {
@@ -224,7 +236,6 @@ class Cooltip {
         this.#arrow.style.right = '';
         this.#arrow.style.bottom = '';
 
-
         const targetCenterX = targetRect.left + window.scrollX + targetRect.width / 2;
         const targetCenterY = targetRect.top + window.scrollY + targetRect.height / 2;
 
@@ -260,8 +271,7 @@ class Cooltip {
             this.#tooltip.style.visibility = 'hidden';
             this.#currentElement = null;
 
-            const baseClass = 'cooltip-tooltip';
-            this.#tooltip.className = baseClass;
+            this.#tooltip.className = 'cooltip-tooltip';
         }
     }
 }
