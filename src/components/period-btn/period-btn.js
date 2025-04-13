@@ -11,6 +11,7 @@ export class PeriodBtn extends EventBase{
 
     #boundOpenRangePicker = this.#openRangePickerHandler.bind(this);
     #boundHandleDeleteClick = this.#handleDeleteClick.bind(this);
+    #boundHandleMouseUp = this.#handleMouseUp.bind(this);
 
     constructor(element, initialPeriod, config = {}) {
         super();
@@ -98,6 +99,7 @@ export class PeriodBtn extends EventBase{
      */
     #setupDOMEvents() {
         this.#element.addEventListener('click', this.#boundOpenRangePicker);
+        this.#element.addEventListener('mouseup', this.#boundHandleMouseUp);
     }
 
     /**
@@ -129,6 +131,13 @@ export class PeriodBtn extends EventBase{
     #handleDeleteClick(event) {
         event.stopPropagation();
         this._emit('delete', { period: this.#period });
+    }
+
+    #handleMouseUp(event) {
+        event.stopPropagation();
+        if (event.button === 1 && this.#config.allowDelete) {
+            this.#boundHandleDeleteClick(event);
+        }
     }
     //#endregion
 }
