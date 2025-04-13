@@ -150,7 +150,7 @@ export class DatesSelector extends EventBase {
                 ...this.#config.datePickerConfig
             }
         });
-        periodPickModal.show();
+        periodPickModal.open();
     }
 
     #handlePeriodChange(event) {

@@ -2,26 +2,31 @@ import { ModalWindow } from "../../../components/modal/modal.js";
 import { AlitosPeriodPicker } from "../../../components/data-picker/altios-period-picker.js";
 
 export class PeriodPickModal extends ModalWindow {
-    periodPicker;
     #callingElement;
     #clonedElement;
     #observer;
 
     constructor(config) {
-        super();
-        this.modalContainer.classList.add('period-pick-container');
+        super({
+            renderOnShow: true,
+            ...config
+        });
         this.config = config;
-        this.periodPicker = new AlitosPeriodPicker(this.contentElement, {
+        this.#callingElement = this.config.callingElement || null;
+        this._boundUpdatePositions = this.updatePositions.bind(this);
+    }
+
+    open() {
+        super.open();
+        this.modalContainer.classList.add('period-pick-container');
+
+        new AlitosPeriodPicker(this.contentElement, {
             mode: 'range',
             twoMonths: true,
             ...this.config.datePickerConfig,
             onRangeSelected: (from, to) => this.onRangeSelected(from, to)
         });
-        this.#callingElement = this.config.callingElement || null;
-        this._boundUpdatePositions = this.updatePositions.bind(this);
-    }
 
-    show() {
         if (this.#callingElement) {
             this.#clonedElement = this.#callingElement.cloneNode(true);
             this.#positionCloned();
@@ -48,7 +53,6 @@ export class PeriodPickModal extends ModalWindow {
             window.addEventListener('scroll', this._boundUpdatePositions);
             window.addEventListener('resize', this._boundUpdatePositions);
         }
-        super.open();
     }
     close() {
         super.close();

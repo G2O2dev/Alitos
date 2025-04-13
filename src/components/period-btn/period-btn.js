@@ -125,7 +125,7 @@ export class PeriodBtn extends EventBase{
             }
         });
 
-        this.periodPickModal.show();
+        this.periodPickModal.open();
     }
 
     #handleDeleteClick(event) {
