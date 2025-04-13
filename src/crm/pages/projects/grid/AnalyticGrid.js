@@ -965,13 +965,16 @@ export class AnalyticGrid {
 
     getSelectedRows() {
         const cellRanges = this.gridApi.getCellRanges();
-        if (!cellRanges || !cellRanges[0]) return [];
-        const {startRow, endRow} = cellRanges[0];
+        if (!cellRanges || cellRanges.length === 0) return [];
         const selected = [];
-        range(startRow.rowIndex, endRow.rowIndex).forEach(i => {
-            const row = this.gridApi.getDisplayedRowAtIndex(i);
-            selected.push(row);
-        });
+
+        for (const cellRange of cellRanges) {
+            const {startRow, endRow} = cellRange;
+            range(startRow.rowIndex, endRow.rowIndex).forEach(i => {
+                const row = this.gridApi.getDisplayedRowAtIndex(i);
+                selected.push(row);
+            });
+        }
         return selected;
     }
 
