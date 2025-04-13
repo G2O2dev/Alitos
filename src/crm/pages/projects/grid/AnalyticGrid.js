@@ -11,7 +11,6 @@ import {dateFormatter, weekdaysFormatter} from "./helpers/formatters.js";
 import {ExpandAllHeader} from "./render/ExpandAllHeader.js";
 import {SmartnameToggleHeader} from "./render/SmartnameToggleHeader.js";
 import {AggTotalCellRenderer} from "./render/AggTotal.js";
-import crmSession from "../../../client/crm-session.js";
 
 export class AnalyticGrid {
     _deletedShown = false;
@@ -31,12 +30,11 @@ export class AnalyticGrid {
         if (params.node.footer) return;
 
         const node = params.node;
-        const data = params.data;
+        const data = node.data;
 
         const cached = this.#smartnameCache.get(node);
         if (cached) return cached;
 
-        const allEqual = (arr) => arr.every(val => val === arr[0]);
         const setToCache = (node, value) => this.#smartnameCache.set(node, value);
         const createCellHtml = (name, tag, operator = '') => {
             return `<span class="smartname_cell">
@@ -45,7 +43,7 @@ export class AnalyticGrid {
                 ${operator ? `<span class="smartname_operator">${operator}</span>` : ''}
             </span>`;
         };
-        const handleMixedValues = (childNodes) => {
+        const getDomains = (childNodes) => {
             const allDomains = childNodes.flatMap(child => child.data.static.smartName.domains || []);
             const uniqueDomains = [...new Set(allDomains)];
             const displayed = uniqueDomains.slice(0, 5).join(', ');
@@ -56,12 +54,11 @@ export class AnalyticGrid {
             return createCellHtml(data.static.smartName.name, data.static.smartName.tag, data.static.operator);
         }
 
-        const childValues = node.allLeafChildren.map(child => createCellHtml(child.data?.static.smartName.name, child.data?.static.smartName.tag));
-        if (allEqual(childValues)) {
-            setToCache(node, childValues[0]);
-            return childValues[0];
+        if (node.allLeafChildren.every(val => val.data?.static.smartName.name === node.allLeafChildren[0].data?.static.smartName.name
+            && val.data?.static.smartName.tag === node.allLeafChildren[0].data?.static.smartName.tag)) {
+            return this.renderSmartnameForCell({node: node.allLeafChildren[0]});
         }
-        const result = handleMixedValues(node.allLeafChildren);
+        const result = getDomains(node.allLeafChildren);
         setToCache(node, result);
         return result;
     }
@@ -235,7 +232,7 @@ export class AnalyticGrid {
             processCellForClipboard: (params) => {
                 if (params.column.colId === 'static.smartName') {
                     const parser = new DOMParser();
-                    const doc = parser.parseFromString(params.value ? params.value.name : this.renderSmartnameForCell(params), 'text/html');
+                    const doc = parser.parseFromString(this.renderSmartnameForCell(params), 'text/html');
                     return doc.body.textContent;
                 }
                 return params.value;
@@ -800,6 +797,68 @@ export class AnalyticGrid {
     }
 
     #projectTypeRenderer(p) {
+        const openWebpages = (domains) => {
+            setTimeout(() => {
+                const anchor = p.eGridCell.querySelector("a");
+                if (anchor && !anchor.dataset.clickListenerAdded) {
+                    anchor.dataset.clickListenerAdded = "true";
+                    anchor.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        // Преобразуем все найденные сайты в корректные URL
+                        const webpages = domains.map(w => `https://${w}`);
+                        if (domains > 1) {
+                            chrome.runtime.sendMessage({
+                                action: "open-window-with-links",
+                                urls: webpages,
+                                windowParams: {
+                                    left: Math.round((screen.availWidth - 1280) / 2),
+                                    top: Math.round((screen.availHeight - 768) / 2),
+                                    width: 1280,
+                                    height: 768,
+                                    focused: true,
+                                    type: "normal"
+                                }
+                            });
+                        } else {
+                            window.open(webpages[0], '_blank');
+                        }
+                    });
+                }
+            }, 0);
+        }
+
+        if (!p.data && !p.node.footer) {
+            // если сгруппировано по источникам, то источники одни для всех строк внутри, берём первую
+            const firstRowStatic = p.node.childrenAfterFilter[0].data.static;
+            const sourcesCount = firstRowStatic.sources.length ?? (
+                firstRowStatic.sources.hosts_content.length +
+                firstRowStatic.sources.calls_content.length +
+                firstRowStatic.sources.sms_content.length
+            );
+            const sourcesCounter = `<span class="sources_count">${sourcesCount}</span>`;
+            let aggregatedHosts = [];
+
+            const hasSites = p.value.includes('Сайты');
+            let sourceType = p.value;
+
+            if (hasSites) {
+                p.node.childrenAfterFilter.forEach(child => {
+                    const data = child.data;
+
+                    if (data.static.sources.hosts_content && data.static.sources.hosts_content.length) {
+                        aggregatedHosts = aggregatedHosts.concat(data.static.sources.hosts_content);
+                    } else if (data.static.sources && Array.isArray(data.static.sources)) {
+                        aggregatedHosts = aggregatedHosts.concat(data.static.sources);
+                    }
+                });
+
+                sourceType = `<a href="#">${p.value}</a>`;
+                openWebpages(aggregatedHosts);
+            }
+
+            return `${sourceType} ${sourcesCounter}`;
+        }
+
         if (!p.data || !p.value) return p.value;
 
         const sourcesCount = p.data.static.sources.length ?? (
@@ -810,40 +869,11 @@ export class AnalyticGrid {
 
         const sourcesCounter = `<span class="sources_count">${sourcesCount}</span>`;
         let sourceType = p.value;
-        const hasSites = p.data.static.sources.hosts_content || p.value.includes('Сайты')
+        const hasSites = (p.data.static.sources.hosts_content && p.data.static.sources.hosts_content.length) || p.value.includes('Сайты');
+
         if (hasSites) {
             sourceType = `<a href="#">${p.value}</a>`;
-
-            setTimeout(() => {
-                const anchor = p.eGridCell.querySelector("a");
-                if (!anchor.dataset.clickListenerAdded) {
-                    anchor.dataset.clickListenerAdded = "true";
-                    if (anchor) {
-                        anchor.addEventListener("click", (e) => {
-                            e.preventDefault();
-                            let webpages = p.data.static.sources.hosts_content ?? p.data.static.sources;
-                            webpages = webpages.map(w => `https://${w}`);
-
-                            if (sourcesCount > 1) {
-                                chrome.runtime.sendMessage({
-                                    action: "open-window-with-links",
-                                    urls: webpages,
-                                    windowParams: {
-                                        left: Math.round((screen.availWidth - 1280) / 2),
-                                        top: Math.round((screen.availHeight - 768) / 2),
-                                        width: 1280,
-                                        height: 768,
-                                        focused: true,
-                                        type: "normal"
-                                    }
-                                });
-                            } else {
-                                window.open(webpages[0], '_blank');
-                            }
-                        });
-                    }
-                }
-            }, 0);
+            openWebpages(p.data.static.sources.hosts_content ?? p.data.static.sources);
         }
 
         return `${sourceType} ${sourcesCounter}`;
