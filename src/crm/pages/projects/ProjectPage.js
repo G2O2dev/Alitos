@@ -252,7 +252,7 @@ export class ProjectPage extends Page {
         const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
 
         const defaultPeriods = [
-            {start: weekAgo, end: now}
+            {start: weekAgo, end: now, name: formatPeriod(weekAgo, now), index: 0}
         ];
 
         this.#periodsSelector = new DatesSelector('.periods-settings', {
@@ -265,29 +265,36 @@ export class ProjectPage extends Page {
             }
         });
 
-        crmSession.getClient().then(client => {
-            const createdAt = new Date(Number(client.created_at) * 1000);
-            createdAt.setHours(0, 0, 0, 0);
+        this.#periodsSelector.on("period:added", ({detail}) => {
+            const period = detail.period;
 
-            this.#periodsSelector.setAllowedRange(createdAt, now);
+            period.index = this.#periodsSelector.getPeriods().findIndex(p => p.id === period.id);
+            period.name = formatPeriod(period.start, period.end).toLowerCase();
+            this.gridManager.updatePeriods(this.#periodsSelector.getPeriods());
+            this.#updatePeriod(period);
+        });
+        this.#periodsSelector.on("period:changed", ({detail}) => this.#updatePeriod(detail.period));
+        this.#periodsSelector.on("period:deleted", ({detail}) => {
+            this.#deletePeriod(detail.period.index);
+
+            this.#periodsSelector.getPeriods().forEach((p, i) => p.index = i);
+
+            this.gridManager.updatePeriods(this.#periodsSelector.getPeriods());
         });
 
-        // this.#periodsSelector.on("period:added", ({details}) => {
-        //     this.#changePeriod(details.period);
-        // });
-        this.#periodsSelector.on("period:changed", ({detail}) => this.#changePeriod(detail.period));
-        // this.#periodsSelector.on("period:deleted", (e) => {
-        //     console.log("period:deleted");
-        // });
+
+        const client = await crmSession.getClient();
+        const createdAt = new Date(Number(client.created_at) * 1000);
+        createdAt.setHours(0, 0, 0, 0);
+        this.#periodsSelector.setAllowedRange(createdAt, now);
     }
 
-    #periodsTasks = [];
-    async #changePeriod(period) {
-        const periodIndex = this.#periodsSelector.getPeriods().findIndex(p => p.id === period.id);
-        const periodTask = this.#periodsTasks[periodIndex];
+    #periodsTasks = new Map();
+    async #updatePeriod(period) {
+        const periodTask = this.#periodsTasks.get(period.id);
         if (periodTask) this.taskTracker.cancelTask(periodTask);
 
-        this.#periodsTasks[periodIndex] = this.taskTracker.addTask({
+        this.#periodsTasks.set(period.id, this.taskTracker.addTask({
             method: async () => {
                 const analytic = [];
                 analytic.push(...await crmSession.getAnalytic(period.start, period.end, false));
@@ -295,12 +302,11 @@ export class ProjectPage extends Page {
                     analytic.push(...await crmSession.getAnalytic(period.start, period.end, true));
                 }
 
-                return analytic;
+                await this.#applyPeriodToGrid(analytic, period.index);
             },
-            info: {loaderText: `Загружаю данные за ${formatPeriod(period.start, period.end)}`},
-            callback: analytic => this.#applyPeriodToGrid(analytic, periodIndex),
+            info: {loaderText: `Загружаю данные за ${period.name}`},
             parallel: true,
-        });
+        }));
     }
 
     async #applyPeriodToGrid(analytic, periodIndex) {
@@ -333,6 +339,13 @@ export class ProjectPage extends Page {
 
         if (!this.gridManager.sourcesGrouping)
             this.gridManager.gridApi.refreshClientSideRowModel('sort');
+    }
+    #deletePeriod(periodIndex) {
+        const rowsMap = this.gridManager.rows;
+
+        for (const [id, rowData] of rowsMap) {
+            rowData.periods.splice(periodIndex, 1);
+        }
     }
     #applyFullStaticDataToGrid(projectsInfo) {
         for (const staticData of projectsInfo.values()) {
@@ -378,23 +391,27 @@ export class ProjectPage extends Page {
         this.gridManager.gridApi.onFilterChanged();
         this.gridManager.refreshCells();
 
-        const managerInfo = await crmSession.getManagerInfo();
-        if (managerInfo?.role === "Manager") {
-            try {
-                for await (const limitPotential of crmSession.forEachDayLimitPotential(startDate, today)) {
-                    limitPotential.forEach(({id, cnt_without_limit_filter}) => {
-                        const project = rows.get(id);
-                        if (project && cnt_without_limit_filter && (!project.static.limitPotential || project.static.limitPotential < cnt_without_limit_filter)) {
-                            project.static.limitPotential = cnt_without_limit_filter;
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error(e);
-            }
-
-            this.gridManager.gridApi.onFilterChanged();
-            this.gridManager.refreshCells();
+        try {
+            // const managerInfo = await crmSession.getManagerInfo();
+            // if (managerInfo?.role === "Manager") {
+            //     try {
+            //         for await (const limitPotential of crmSession.forEachDayLimitPotential(startDate, today)) {
+            //             limitPotential.forEach(({id, cnt_without_limit_filter}) => {
+            //                 const project = rows.get(id);
+            //                 if (project && cnt_without_limit_filter && (!project.static.limitPotential || project.static.limitPotential < cnt_without_limit_filter)) {
+            //                     project.static.limitPotential = cnt_without_limit_filter;
+            //                 }
+            //             });
+            //         }
+            //     } catch (e) {
+            //         console.error(e);
+            //     }
+            //
+            //     this.gridManager.gridApi.onFilterChanged();
+            //     this.gridManager.refreshCells();
+            // }
+        } catch (e) {
+            console.error("Не могу получить информацию о менеджере", e);
         }
 
     }
@@ -465,20 +482,27 @@ export class ProjectPage extends Page {
         }
     }
 
+    #useCrmStatuses = false;
     async toggleCrmStatuses() {
-        this.#setToggleState('toggleCrmStatuses', !this.gridManager.useCrmStatuses);
+        this.#useCrmStatuses = !this.#useCrmStatuses;
+        this.#setToggleState('toggleCrmStatuses', this.#useCrmStatuses);
+
+        if (!this.#useCrmStatuses) {
+            this.gridManager.setPeriodColumns(['leads', 'missed', 'declined']);
+            return;
+        }
 
         if (!this.#usedCrmColumns) {
             this.#usedCrmColumns = this.taskTracker.addTask({
                 method: async () => await this.getUsedStatuses(),
-                info: {loaderText: 'Получаю используемые статусы'},
+                info: { loaderText: 'Получаю используемые статусы' },
                 parallel: true,
             });
 
-            this.gridManager.toggleCrmStatuses(await this.#usedCrmColumns);
+            this.gridManager.setPeriodColumns(await this.#usedCrmColumns);
         } else {
             const used = await this.#usedCrmColumns;
-            this.gridManager.toggleCrmStatuses(used);
+            this.gridManager.setPeriodColumns(used);
         }
     }
 

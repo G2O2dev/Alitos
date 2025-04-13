@@ -78,7 +78,8 @@ export class DatesSelector extends EventBase {
         return {
             id: periodData.id || this.#generateId(),
             start: periodData.start instanceof Date ? periodData.start : new Date(periodData.start || Date.now()),
-            end: periodData.end instanceof Date ? periodData.end : new Date(periodData.end || Date.now())
+            end: periodData.end instanceof Date ? periodData.end : new Date(periodData.end || Date.now()),
+            ...periodData
         };
     }
 
@@ -140,7 +141,7 @@ export class DatesSelector extends EventBase {
                 };
                 this.#periods.push(newPeriod);
                 this.#updateUI();
-                this._emit('period:added', { period: { ...newPeriod } });
+                this._emit('period:added', { period: newPeriod });
             },
             datePickerConfig: {
                 ...this.#config.datePickerConfig
@@ -152,7 +153,6 @@ export class DatesSelector extends EventBase {
     #handlePeriodChange(event) {
         const { period, oldPeriod } = event.detail;
         if (oldPeriod.start === period.start && oldPeriod.end === period.end) return;
-
         const index = this.#periods.findIndex(p => p.id === period.id);
         if (index !== -1) {
             this.#periods[index] = period;

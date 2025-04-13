@@ -16,7 +16,7 @@ export class PeriodBtn extends EventBase{
         super();
 
         this.#element = element;
-        this.#period = { ...(initialPeriod || { start: new Date(), end: new Date() }) };
+        this.#period = initialPeriod;
         this.#config = {
             allowDelete: false,
             datePickerConfig: {},

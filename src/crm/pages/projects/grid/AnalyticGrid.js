@@ -16,7 +16,6 @@ export class AnalyticGrid {
     _deletedShown = false;
     _rows = new Map();
     _searchCache = {};
-    #colDefs;
     #eventTarget = new EventTarget();
 
     gridApi = null;
@@ -95,7 +94,8 @@ export class AnalyticGrid {
         values.forEach(row => this._rows.set(row.static.id, row));
     }
 
-    #buildGridOptions(periods) {
+    //#region Options builder
+    #buildGridOptions() {
         const theme = agGrid.themeQuartz.withParams({
             accentColor: 'var(--color-accent)',
             backgroundColor: 'var(--color-bg)',
@@ -116,231 +116,7 @@ export class AnalyticGrid {
             columnBorder: {style: 'solid', width: 1, color: 'var(--color-gray-300)'},
         });
 
-        let basicColumns = [
-            {
-                headerName: 'Id',
-                field: 'static.id',
-                minWidth: 90,
-                maxWidth: 90,
-                resizable: false,
-                filter: false,
-                suppressColumnsToolPanel: true,
-                suppressMovable: true,
-            },
-            {
-                headerName: 'Умное имя',
-                field: 'static.smartName',
-                minWidth: 220,
-                headerTooltip: 'Умное имя имеет ряд улучшений над названием и тегом:\n- Компилирует название и тег в формате: Название (Тег).\n- В конце ячейки отображается реальный оператор.\n- При клике на домен, он будет открыт\n- Если тег повторяет название он не будет отображён.',
-                cellRenderer: (p) => this.renderSmartnameForCell(p),
-
-                suppressColumnsToolPanel: true,
-                filterParams: {suppressMiniFilter: true},
-                filterValueGetter: params => params.data.static.operator,
-                headerComponent: SmartnameToggleHeader,
-
-                comparator: (valueA, valueB, nodeA, nodeB, isDescending) => {
-                    const isEmpty = (val) => val == null || String(val).trim() === '';
-
-                    const aIsNull = valueA == null;
-                    const bIsNull = valueB == null;
-                    if (aIsNull && bIsNull) return 0;
-                    if (aIsNull) return isDescending ? -1 : 1;
-                    if (bIsNull) return isDescending ? 1 : -1;
-
-                    const compareFields = (fieldA, fieldB) => {
-                        const fieldAEmpty = isEmpty(fieldA);
-                        const fieldBEmpty = isEmpty(fieldB);
-                        if (fieldAEmpty && fieldBEmpty) return 0;
-                        if (fieldAEmpty) return 1;
-                        if (fieldBEmpty) return -1;
-                        return String(fieldA).localeCompare(String(fieldB));
-                    };
-
-                    const nameComparison = compareFields(valueA ? valueA.name : '', valueB ? valueB.name : '');
-                    if (nameComparison !== 0) return nameComparison;
-
-                    return compareFields(valueA ? valueA.tag : '', valueB ? valueB.tag : '');
-                }
-            },
-            {
-                headerName: 'Название',
-                field: 'static.name',
-                minWidth: 120,
-                filter: false,
-                aggFunc: "name",
-                hide: true,
-                suppressColumnsToolPanel: true,
-            },
-            {
-                headerName: 'Тег',
-                field: 'static.tag',
-                minWidth: 70,
-                filter: false,
-                resizable: true,
-                aggFunc: "same",
-                hide: true,
-                suppressColumnsToolPanel: true,
-                headerComponent: SmartnameToggleHeader,
-            },
-            {
-                headerName: 'Статус',
-                field: 'static.status',
-                minWidth: 120,
-                maxWidth: 120,
-                resizable: false,
-                filterParams: {suppressMiniFilter: true},
-                aggFunc: "activeInactive",
-                cellClass: info => this.#getCellClassByStatus(info.data),
-                valueGetter: params => {
-                    if (params.data) {
-                        if (params.data.static.delete_date)
-                            return 'Удалён';
-
-                        if (params.data.static.status === 1) {
-                            return 'Активен';
-                        } else {
-                            return 'Неактивен';
-                        }
-                    }
-                },
-                headerTooltip: 'Текущий статус проекта. Если ячейка:\nЖёлтая — при последней отправке лимит проекта был снижен системой из-за нехватки баланса.\nКрасная — проект не был отправлен из-за нехватки баланса.',
-            },
-            {
-                headerName: 'Тип',
-                field: 'static.project_type',
-                minWidth: 120,
-                maxWidth: 120,
-                resizable: false,
-                cellRenderer: params => this.#projectTypeRenderer(params),
-                headerTooltip: 'Тип проекта и количество источников',
-                filterParams: {suppressMiniFilter: true},
-                aggFunc: "same",
-            },
-        ];
-
-        const periodsColumns = this.#buildPeriodColumns(0);
-
-        const limitCellClass = params => {
-            switch (params.data?.static.limitState) {
-                case "warning":
-                    return "project-limit-warning";
-                case "hint":
-                    return "project-limit-hint";
-            }
-        }
-
-        const limitCellRenderer = (params) => {
-            let potential;
-            if (params.data) {
-                potential = params.data.static.limitPotential;
-            }
-
-            return `${params.value}${potential === undefined ? '' : ` <span class="limitPotential">${potential}</span>`}`;
-        }
-
-        const regionCellClass = (params) => {
-            if (!params.data?.static.region_limit) return;
-
-            return params.data.static.regions_reverse ? "project-region-reverse" : "project-region";
-        }
-
-        const hiddenColumns = [
-            // this.#createNumberColumn('Номеров сегодня', 'today_numbers', { defaultOption: 'greaterThan' }, 'Номеров получено сегодня', null, null, true),
-            {
-                headerName: 'Дни получения',
-                field: 'static.workdays',
-                minWidth: 160,
-                maxWidth: 180,
-                resizable: false,
-                filter: 'agTextColumnFilter',
-                filterParams: {defaultOption: 'contains'},
-                headerTooltip: 'В какие дни работает проект',
-                hide: true,
-                aggFunc: "same",
-                valueFormatter: p => weekdaysFormatter(p),
-            },
-            {
-                headerName: 'Регион',
-                field: 'static.region_limit',
-                minWidth: 160,
-                maxWidth: 180,
-                resizable: false,
-                filter: 'agTextColumnFilter',
-                filterParams: {defaultOption: 'contains'},
-                headerTooltip: 'Ограничение по регионам, отображается в виде кода региона. Если ячейка:\nЗелёная — Номера будут поступать только из этого региона.\nКрасная — Номера будут поступать из всех регионов кроме указанного.',
-                hide: true,
-                aggFunc: "same",
-                cellClass: regionCellClass,
-            },
-            {
-                headerName: 'Добавлен',
-                field: 'static.creation_date',
-                minWidth: 110,
-                maxWidth: 110,
-                resizable: false,
-                filter: 'agDateColumnFilter',
-                headerTooltip: 'Когда проект был добавлен',
-                hide: true,
-                valueFormatter: p => dateFormatter(p),
-                aggFunc: "sameDate",
-            },
-            {
-                headerName: 'Изменён',
-                field: 'static.edit_date',
-                minWidth: 110,
-                maxWidth: 110,
-                resizable: false,
-                filter: 'agDateColumnFilter',
-                headerTooltip: 'Когда проект был изменён',
-                hide: true,
-                valueFormatter: p => dateFormatter(p),
-                aggFunc: "sameDate",
-            },
-            {
-                headerName: 'Удалён',
-                field: 'static.delete_date',
-                minWidth: 110,
-                maxWidth: 110,
-                resizable: false,
-                filter: 'agDateColumnFilter',
-                headerTooltip: 'Когда проект был удалён',
-                hide: true,
-                valueFormatter: p => dateFormatter(p),
-                aggFunc: "sameDate",
-            },
-            this.#createNumberColumn('Дублей всего', 'static.duplicate_cnt', {defaultOption: 'greaterThan'}, null, null, null, true),
-            this.#createNumberColumn('Дублей сегодня', 'static.duplicate_cnt_now', {defaultOption: 'greaterThan'}, null, null, null, true),
-
-            {
-                headerName: 'Источник',
-                field: 'static.sources',
-
-                hide: true,
-                suppressColumnsToolPanel: true,
-            },
-        ];
-
-        const afterPeriodsColumns = [
-            this.#createNumberColumn('Лимит', 'static.limit', {
-                defaultOption: 'greaterThan',
-                    filterOptions: [
-                        'equals',
-                        'notEqual',
-                        'greaterThan',
-                        'lessThan',
-                        'inRange',
-                        {
-                            displayKey: 'canGiveMoreThanLimit',
-                            displayName: 'Может давать больше',
-                            predicate: () => true,
-                            numberOfInputs: 0,
-                        },
-                    ],
-            }, 'Лимит проекта. Если ячейка:\nГолубая — проект коснулся лимита 1 или 2 раза за последние 7 дней.\nЗелёная — проект коснулся лимита более 2 раз за последние 7 дней.', limitCellRenderer, limitCellClass),
-        ];
-
-        this.#colDefs = basicColumns.concat(periodsColumns, afterPeriodsColumns, hiddenColumns);
+        const colDefs = this.#buildColDefs();
 
         return {
             theme,
@@ -402,7 +178,7 @@ export class AnalyticGrid {
                 suppressHeaderMenuButton: true,
             },
             aggFuncs: aggFuncs,
-            columnDefs: this.#colDefs,
+            columnDefs: colDefs,
             autoGroupColumnDef: {
                 minWidth: 160,
                 maxWidth: 320,
@@ -570,103 +346,245 @@ export class AnalyticGrid {
         };
     }
 
-    #onSelectionChanged() {
-        this.#emit("selectionChanged");
-    }
+    #buildColDefs() {
+        const periodsColumns = this.#buildPeriodsColumns();
+        const colDefs = this.#buildBasicColumns().concat(periodsColumns);
 
-    refreshAggregated() {
-        const groupNodes = [];
-        this.gridApi.forEachNode(node => {
-            if (node.group) groupNodes.push(node);
-        });
-        this.gridApi.refreshCells({
-            rowNodes: groupNodes,
-            force: true
-        });
-    }
+        colDefs.push(this.#buildLimitColumn(), ...this.#buildHiddenColumns());
 
-    #registerGlobalEvents() {
-        this.gridElement.addEventListener('keydown', (e) => {
-            if (e.key === 'Delete') {
-                const selectedCells = this.gridApi.getCellRanges()[0];
-                if (selectedCells && selectedCells.startColumn.colId === "static.id") {
-                    const toRemove = this.getSelectedRows().map(row => row.data.static.id);
-                    this.gridApi.clearCellSelection();
-                    this.gridApi.clearFocusedCell();
-                    this.#hideCells(toRemove);
+        return colDefs;
+    }
+    #buildBasicColumns() {
+        return [
+            {
+                headerName: 'Id',
+                field: 'static.id',
+                minWidth: 90,
+                maxWidth: 90,
+                resizable: false,
+                filter: false,
+                suppressColumnsToolPanel: true,
+                suppressMovable: true,
+            },
+            {
+                headerName: 'Умное имя',
+                field: 'static.smartName',
+                minWidth: 220,
+                headerTooltip: 'Умное имя имеет ряд улучшений над названием и тегом:\n- Компилирует название и тег в формате: Название (Тег).\n- В конце ячейки отображается реальный оператор.\n- При клике на домен, он будет открыт\n- Если тег повторяет название он не будет отображён.',
+                cellRenderer: (p) => this.renderSmartnameForCell(p),
+
+                suppressColumnsToolPanel: true,
+                filterParams: {suppressMiniFilter: true},
+                filterValueGetter: params => params.data.static.operator,
+                headerComponent: SmartnameToggleHeader,
+
+                comparator: (valueA, valueB, nodeA, nodeB, isDescending) => {
+                    const isEmpty = (val) => val == null || String(val).trim() === '';
+
+                    const aIsNull = valueA == null;
+                    const bIsNull = valueB == null;
+                    if (aIsNull && bIsNull) return 0;
+                    if (aIsNull) return isDescending ? -1 : 1;
+                    if (bIsNull) return isDescending ? 1 : -1;
+
+                    const compareFields = (fieldA, fieldB) => {
+                        const fieldAEmpty = isEmpty(fieldA);
+                        const fieldBEmpty = isEmpty(fieldB);
+                        if (fieldAEmpty && fieldBEmpty) return 0;
+                        if (fieldAEmpty) return 1;
+                        if (fieldBEmpty) return -1;
+                        return String(fieldA).localeCompare(String(fieldB));
+                    };
+
+                    const nameComparison = compareFields(valueA ? valueA.name : '', valueB ? valueB.name : '');
+                    if (nameComparison !== 0) return nameComparison;
+
+                    return compareFields(valueA ? valueA.tag : '', valueB ? valueB.tag : '');
                 }
-            }
-            if (e.ctrlKey && e.shiftKey && e.code === "KeyC") {
-                this.copySourcesOfSelected();
-            }
-            if (e.ctrlKey && e.altKey && e.code === "KeyC") {
-                this.copyWebpagesOfSelected();
-            }
-        });
-    }
+            },
+            {
+                headerName: 'Название',
+                field: 'static.name',
+                minWidth: 120,
+                filter: false,
+                aggFunc: "name",
+                hide: true,
+                suppressColumnsToolPanel: true,
+            },
+            {
+                headerName: 'Тег',
+                field: 'static.tag',
+                minWidth: 70,
+                filter: false,
+                resizable: true,
+                aggFunc: "same",
+                hide: true,
+                suppressColumnsToolPanel: true,
+                headerComponent: SmartnameToggleHeader,
+            },
+            {
+                headerName: 'Статус',
+                field: 'static.status',
+                minWidth: 120,
+                maxWidth: 120,
+                resizable: false,
+                filterParams: {suppressMiniFilter: true},
+                aggFunc: "activeInactive",
+                cellClass: info => this.#getCellClassByStatus(info.data),
+                valueGetter: params => {
+                    if (params.data) {
+                        if (params.data.static.delete_date)
+                            return 'Удалён';
 
-    #hideCells(cells) {
-        this.gridApi.applyTransaction({remove: cells});
-        this.gridApi.refreshCells({force: true});
-    }
-
-    #projectTypeRenderer(p) {
-        if (!p.data || !p.value) return p.value;
-
-        const sourcesCount = p.data.static.sources.length ?? (
-            p.data.static.sources.hosts_content.length +
-            p.data.static.sources.calls_content.length +
-            p.data.static.sources.sms_content.length
-        );
-
-        const sourcesCounter = `<span class="sources_count">${sourcesCount}</span>`;
-        let sourceType = p.value;
-        const hasSites = p.data.static.sources.hosts_content || p.value.includes('Сайты')
-        if (hasSites) {
-            sourceType = `<a href="#">${p.value}</a>`;
-
-            setTimeout(() => {
-                const anchor = p.eGridCell.querySelector("a");
-                if (!anchor.dataset.clickListenerAdded) {
-                    anchor.dataset.clickListenerAdded = "true";
-                    if (anchor) {
-                        anchor.addEventListener("click", (e) => {
-                            e.preventDefault();
-                            let webpages = p.data.static.sources.hosts_content ?? p.data.static.sources;
-                            webpages = webpages.map(w => `https://${w}`);
-
-                            if (sourcesCount > 1) {
-                                chrome.runtime.sendMessage({
-                                    action: "open-window-with-links",
-                                    urls: webpages,
-                                    windowParams: {
-                                        left: Math.round((screen.availWidth - 1280) / 2),
-                                        top: Math.round((screen.availHeight - 768) / 2),
-                                        width: 1280,
-                                        height: 768,
-                                        focused: true,
-                                        type: "normal"
-                                    }
-                                });
-                            } else {
-                                window.open(webpages[0], '_blank');
-                            }
-                        });
+                        if (params.data.static.status === 1) {
+                            return 'Активен';
+                        } else {
+                            return 'Неактивен';
+                        }
                     }
-                }
-            }, 0);
+                },
+                headerTooltip: 'Текущий статус проекта. Если ячейка:\nЖёлтая — при последней отправке лимит проекта был снижен системой из-за нехватки баланса.\nКрасная — проект не был отправлен из-за нехватки баланса.',
+            },
+            {
+                headerName: 'Тип',
+                field: 'static.project_type',
+                minWidth: 120,
+                maxWidth: 120,
+                resizable: false,
+                cellRenderer: params => this.#projectTypeRenderer(params),
+                headerTooltip: 'Тип проекта и количество источников',
+                filterParams: {suppressMiniFilter: true},
+                aggFunc: "same",
+            },
+        ];
+    }
+    #buildPeriodsColumns() {
+        const periodsColumns = [];
+        for (const period of this.periods) {
+            periodsColumns.push(...this.#buildPeriodColumns(period, this.#usedPeriodColumns));
         }
 
-        return `${sourceType} ${sourcesCounter}`;
+        return periodsColumns;
+    }
+    #buildLimitColumn() {
+        const limitCellClass = params => {
+            switch (params.data?.static.limitState) {
+                case "warning":
+                    return "project-limit-warning";
+                case "hint":
+                    return "project-limit-hint";
+            }
+        }
+        const limitCellRenderer = (params) => {
+            let potential;
+            if (params.data) {
+                potential = params.data.static.limitPotential;
+            }
+
+            return `${params.value}${potential === undefined ? '' : ` <span class="limitPotential">${potential}</span>`}`;
+        }
+
+        return this.#createNumberColumn('Лимит', 'static.limit', {
+            defaultOption: 'greaterThan',
+            filterOptions: [
+                'equals',
+                'notEqual',
+                'greaterThan',
+                'lessThan',
+                'inRange',
+                {
+                    displayKey: 'canGiveMoreThanLimit',
+                    displayName: 'Может давать больше',
+                    predicate: () => true,
+                    numberOfInputs: 0,
+                },
+            ],
+        }, 'Лимит проекта. Если ячейка:\nГолубая — проект коснулся лимита 1 или 2 раза за последние 7 дней.\nЗелёная — проект коснулся лимита более 2 раз за последние 7 дней.', limitCellRenderer, limitCellClass);
+    }
+    #buildHiddenColumns() {
+        const regionCellClass = (params) => {
+            if (!params.data?.static.region_limit) return;
+
+            return params.data.static.regions_reverse ? "project-region-reverse" : "project-region";
+        }
+
+        return [
+            {
+                headerName: 'Дни получения',
+                field: 'static.workdays',
+                minWidth: 160,
+                maxWidth: 180,
+                resizable: false,
+                filter: 'agTextColumnFilter',
+                filterParams: {defaultOption: 'contains'},
+                headerTooltip: 'В какие дни работает проект',
+                hide: true,
+                aggFunc: "same",
+                valueFormatter: p => weekdaysFormatter(p),
+            },
+            {
+                headerName: 'Регион',
+                field: 'static.region_limit',
+                minWidth: 160,
+                maxWidth: 180,
+                resizable: false,
+                filter: 'agTextColumnFilter',
+                filterParams: {defaultOption: 'contains'},
+                headerTooltip: 'Ограничение по регионам, отображается в виде кода региона. Если ячейка:\nЗелёная — Номера будут поступать только из этого региона.\nКрасная — Номера будут поступать из всех регионов кроме указанного.',
+                hide: true,
+                aggFunc: "same",
+                cellClass: regionCellClass,
+            },
+            {
+                headerName: 'Добавлен',
+                field: 'static.creation_date',
+                minWidth: 110,
+                maxWidth: 110,
+                resizable: false,
+                filter: 'agDateColumnFilter',
+                headerTooltip: 'Когда проект был добавлен',
+                hide: true,
+                valueFormatter: p => dateFormatter(p),
+                aggFunc: "sameDate",
+            },
+            {
+                headerName: 'Изменён',
+                field: 'static.edit_date',
+                minWidth: 110,
+                maxWidth: 110,
+                resizable: false,
+                filter: 'agDateColumnFilter',
+                headerTooltip: 'Когда проект был изменён',
+                hide: true,
+                valueFormatter: p => dateFormatter(p),
+                aggFunc: "sameDate",
+            },
+            {
+                headerName: 'Удалён',
+                field: 'static.delete_date',
+                minWidth: 110,
+                maxWidth: 110,
+                resizable: false,
+                filter: 'agDateColumnFilter',
+                headerTooltip: 'Когда проект был удалён',
+                hide: true,
+                valueFormatter: p => dateFormatter(p),
+                aggFunc: "sameDate",
+            },
+            this.#createNumberColumn('Дублей всего', 'static.duplicate_cnt', {defaultOption: 'greaterThan'}, null, null, null, true),
+            this.#createNumberColumn('Дублей сегодня', 'static.duplicate_cnt_now', {defaultOption: 'greaterThan'}, null, null, null, true),
+
+            {
+                headerName: 'Источник',
+                field: 'static.sources',
+
+                hide: true,
+                suppressColumnsToolPanel: true,
+            },
+        ]
     }
 
-    #getCellClassByStatus(data) {
-        if (!data || data.static.status !== 1 || data.static.delete_date) return '';
-
-        return data.static.state === 0 ? 'project-limited-completely' : data.static.state > 0 ? 'project-limited' : '';
-    }
-
-    #buildPeriodColumns(periodDataIndex, periodName = '', visibleColumns = ['processed', 'leads', 'missed', 'declined']) {
+    #buildPeriodColumns(period, renderColumns) {
         const periodValueGetter = (params) => {
             const periodId = params.colDef.context.periodId;
             const field = params.colDef.field;
@@ -801,7 +719,7 @@ export class AnalyticGrid {
                     }
                     return a - b;
                 },
-                context: {periodId: periodDataIndex},
+                context: {periodId: period.index},
                 valueGetter: periodValueGetter,
                 cellRenderer: cellRenderer,
                 cellClass: cellClass,
@@ -809,16 +727,112 @@ export class AnalyticGrid {
             };
         };
 
-        return visibleColumns.map(columnField => {
-            const columnName = getColumnName(columnField);
+        return renderColumns.map(columnField => {
             return createPeriodColumn(
-                `${columnName}${periodName ? ` ${periodName}` : ''}`,
+                getColumnName(columnField),
                 columnField,
-                getColumnTooltip(columnField, periodName),
+                getColumnTooltip(columnField, period.name),
                 params => cellRender(params, columnField !== 'processed'),
                 `${columnField}-cell`
             );
         });
+    }
+    //#endregion
+
+    #onSelectionChanged() {
+        this.#emit("selectionChanged");
+    }
+
+    refreshAggregated() {
+        const groupNodes = [];
+        this.gridApi.forEachNode(node => {
+            if (node.group) groupNodes.push(node);
+        });
+        this.gridApi.refreshCells({
+            rowNodes: groupNodes,
+            force: true
+        });
+    }
+
+    #registerGlobalEvents() {
+        this.gridElement.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete') {
+                const selectedCells = this.gridApi.getCellRanges()[0];
+                if (selectedCells && selectedCells.startColumn.colId === "static.id") {
+                    const toRemove = this.getSelectedRows().map(row => row.data.static.id);
+                    this.gridApi.clearCellSelection();
+                    this.gridApi.clearFocusedCell();
+                    this.#hideCells(toRemove);
+                }
+            }
+            if (e.ctrlKey && e.shiftKey && e.code === "KeyC") {
+                this.copySourcesOfSelected();
+            }
+            if (e.ctrlKey && e.altKey && e.code === "KeyC") {
+                this.copyWebpagesOfSelected();
+            }
+        });
+    }
+
+    #hideCells(cells) {
+        this.gridApi.applyTransaction({remove: cells});
+        this.gridApi.refreshCells({force: true});
+    }
+
+    #projectTypeRenderer(p) {
+        if (!p.data || !p.value) return p.value;
+
+        const sourcesCount = p.data.static.sources.length ?? (
+            p.data.static.sources.hosts_content.length +
+            p.data.static.sources.calls_content.length +
+            p.data.static.sources.sms_content.length
+        );
+
+        const sourcesCounter = `<span class="sources_count">${sourcesCount}</span>`;
+        let sourceType = p.value;
+        const hasSites = p.data.static.sources.hosts_content || p.value.includes('Сайты')
+        if (hasSites) {
+            sourceType = `<a href="#">${p.value}</a>`;
+
+            setTimeout(() => {
+                const anchor = p.eGridCell.querySelector("a");
+                if (!anchor.dataset.clickListenerAdded) {
+                    anchor.dataset.clickListenerAdded = "true";
+                    if (anchor) {
+                        anchor.addEventListener("click", (e) => {
+                            e.preventDefault();
+                            let webpages = p.data.static.sources.hosts_content ?? p.data.static.sources;
+                            webpages = webpages.map(w => `https://${w}`);
+
+                            if (sourcesCount > 1) {
+                                chrome.runtime.sendMessage({
+                                    action: "open-window-with-links",
+                                    urls: webpages,
+                                    windowParams: {
+                                        left: Math.round((screen.availWidth - 1280) / 2),
+                                        top: Math.round((screen.availHeight - 768) / 2),
+                                        width: 1280,
+                                        height: 768,
+                                        focused: true,
+                                        type: "normal"
+                                    }
+                                });
+                            } else {
+                                window.open(webpages[0], '_blank');
+                            }
+                        });
+                    }
+                }
+            }, 0);
+        }
+
+        return `${sourceType} ${sourcesCounter}`;
+    }
+
+    #getCellClassByStatus(data) {
+        if (!data || data.static.status !== 1 || data.static.delete_date) return '';
+
+        return data.static.state === 0 ? 'project-limited-completely' : data.static.state > 0 ? 'project-limited' : '';
     }
 
     #hideColumns(columnsToHide = []) {
@@ -1057,34 +1071,24 @@ export class AnalyticGrid {
         this.onReset?.();
     }
 
-    #useCrmStatuses = false;
+    #usedPeriodColumns = ['processed', 'leads', 'missed', 'declined'];
+    setPeriodColumns(usedCrmColumns) {
+        const statusOrder = [
+            'processed', 'leads', 'missed', 'declined', 'crm_base', 'crm_missed', 'crm_conversation', 'crm_payexpect', 'crm_partner', 'crm_payed', 'crm_closed', 'crm_test', 'crm_hot', 'crm_forreplace', 'crm_finalymissed'
+        ];
+        usedCrmColumns.sort((a, b) => statusOrder.indexOf(a) - statusOrder.indexOf(b));
+        if (usedCrmColumns[0] !== 'processed') usedCrmColumns.unshift('processed');
 
-    get useCrmStatuses() {
-        return this.#useCrmStatuses;
+        this.#usedPeriodColumns = usedCrmColumns;
+
+        this.gridOptions.columnDefs = this.#buildColDefs();
+        this.gridApi.setGridOption('columnDefs', this.gridOptions.columnDefs);
     }
 
-    toggleCrmStatuses(usedCrmColumns) {
-        const crmStatuses = ['crm_base', 'crm_missed', 'crm_conversation', 'crm_payexpect', 'crm_partner', 'crm_payed', 'crm_closed', 'crm_test', 'crm_hot', 'crm_forreplace', 'crm_finalymissed'];
-        const periodColumns = ['leads', 'missed', 'declined'];
-        const processedIndex = this.gridOptions.columnDefs.findIndex(colDef => colDef.field === 'processed');
-
-        usedCrmColumns.sort((a, b) => crmStatuses.indexOf(a) - crmStatuses.indexOf(b));
-
-        const columnsToBuild = this.#useCrmStatuses ? periodColumns : usedCrmColumns;
-        const filterTerms = this.#useCrmStatuses ? usedCrmColumns : periodColumns;
-
-        const newColumnDefs = this.gridOptions.columnDefs.filter(colDef => !filterTerms.some(term => colDef.field?.includes(term)));
-
-        this.periods.forEach((period, i) => {
-            const periodCols = this.#buildPeriodColumns(i, '', columnsToBuild);
-            newColumnDefs.splice(processedIndex + 1, 0, ...periodCols);
-        });
-
-        this.gridOptions.columnDefs = newColumnDefs;
-        this.gridApi.setGridOption('columnDefs', newColumnDefs);
-        this.#useCrmStatuses = !this.#useCrmStatuses;
-
-        return this.#useCrmStatuses;
+    updatePeriods(periods) {
+        this.periods = periods;
+        this.gridOptions.columnDefs = this.#buildColDefs();
+        this.gridApi.setGridOption('columnDefs', this.gridOptions.columnDefs);
     }
 
     //#endregion
