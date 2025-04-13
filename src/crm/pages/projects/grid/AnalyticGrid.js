@@ -242,6 +242,26 @@ export class AnalyticGrid {
             },
 
             onGridReady: (params) => {
+                document.addEventListener('auxclick', function(event) {
+                    if (event.button !== 1) return;
+
+                    const headerCell = event.target.closest('.ag-header-cell');
+                    if (!headerCell) return;
+
+                    const colId = headerCell.getAttribute('col-id');
+                    if (!colId) return;
+
+                    const filterModel = params.api.getFilterModel();
+                    if (filterModel && filterModel[colId]) {
+                        delete filterModel[colId];
+                        gridApi.setFilterModel(filterModel);
+                    }
+
+                    event.preventDefault();
+                    event.stopPropagation();
+                });
+
+
                 const gridApi = params.api;
                 let isDragSelecting = false;
                 let dragSelectAction = null;
