@@ -33,6 +33,8 @@ export class ProjectPage extends Page {
         this.#setupEvents();
         this.#initSearch();
         this.#loadData();
+
+
     }
 
     #setupFastActions() {
@@ -156,11 +158,11 @@ export class ProjectPage extends Page {
     }
 
     #loadData() {
+        for (const period of this.#periodsSelector.getPeriods()) {
+            this.#updatePeriod(period, false);
+        }
+
         this.taskTracker.addTasks([
-            {
-                method: () => this.loadAnalytics(false),
-                info: {loaderText: 'Загружаю аналитику'}
-            },
             {
                 method: () => this.loadProjectInfo(false),
                 info: {loaderText: 'Загружаю настройки проектов'}
@@ -267,13 +269,17 @@ export class ProjectPage extends Page {
 
         this.#periodsSelector.on("period:added", ({detail}) => {
             const period = detail.period;
-
             period.index = this.#periodsSelector.getPeriods().findIndex(p => p.id === period.id);
             period.name = formatPeriod(period.start, period.end).toLowerCase();
+
             this.gridManager.updatePeriods(this.#periodsSelector.getPeriods());
             this.#updatePeriod(period);
         });
-        this.#periodsSelector.on("period:changed", ({detail}) => this.#updatePeriod(detail.period));
+        this.#periodsSelector.on("period:changed", ({detail}) => {
+            this.#updatePeriod(detail.period);
+            detail.period.name = formatPeriod(detail.period.start, detail.period.end).toLowerCase();
+            this.gridManager.updatePeriodTooltip(detail.period);
+        });
         this.#periodsSelector.on("period:deleted", ({detail}) => {
             this.#deletePeriod(detail.period.index);
 
@@ -290,56 +296,37 @@ export class ProjectPage extends Page {
     }
 
     #periodsTasks = new Map();
-    async #updatePeriod(period) {
+    async #updatePeriod(period, parallel = true) {
         const periodTask = this.#periodsTasks.get(period.id);
-        if (periodTask) this.taskTracker.cancelTask(periodTask);
-
-        this.#periodsTasks.set(period.id, this.taskTracker.addTask({
-            method: async () => {
-                const analytic = [];
-                analytic.push(...await crmSession.getAnalytic(period.start, period.end, false));
-                if (this.#deletedLoaded) {
-                    analytic.push(...await crmSession.getAnalytic(period.start, period.end, true));
-                }
-
-                await this.#applyPeriodToGrid(analytic, period.index);
-            },
-            info: {loaderText: `Загружаю данные за ${period.name}`},
-            parallel: true,
-        }));
-    }
-
-    async #applyPeriodToGrid(analytic, periodIndex) {
-        const newRows = [];
-        const staticData = await crmSession.getStaticData();
-        const rowsMap = this.gridManager.rows;
-
-        for (const [pId, periodData] of analytic) {
-            const existingRow = rowsMap.get(pId);
-            if (existingRow) {
-                existingRow.periods[periodIndex] = periodData;
-            } else {
-                const periodsData = [];
-                periodsData[periodIndex] = periodData;
-                newRows.push({
-                    periods: periodsData,
-                    static: staticData.get(pId),
-                });
-            }
+        if (periodTask) {
+            this.taskTracker.cancelTask(periodTask);
         }
 
-        const newRowsLen = newRows.length;
-        if (newRowsLen)
-            this.gridManager.addRows(newRows);
+        const task = this.taskTracker.addTask({
+            method: async () => {
+                try {
+                    const analytic = [];
+                    analytic.push(...await crmSession.getAnalytic(period.start, period.end, false));
+                    if (this.#deletedLoaded) {
+                        analytic.push(...await crmSession.getAnalytic(period.start, period.end, true));
+                    }
 
-        if (rowsMap.size !== newRowsLen)
-            this.gridManager.refreshCells();
+                    const staticData = await crmSession.getStaticData();
+                    await this.gridManager.applyAnalyticToPeriod(staticData, analytic, period.index);
+                } catch (err) {
+                    this.#onError(err);
+                } finally {
+                    this.#periodsTasks.delete(period.id);
+                }
+            },
+            info: { loaderText: `Загружаю аналитику за ${period.name}` },
+            parallel: parallel,
+        });
 
-        this.gridManager.gridApi.refreshClientSideRowModel('aggregate');
-
-        if (!this.gridManager.sourcesGrouping)
-            this.gridManager.gridApi.refreshClientSideRowModel('sort');
+        this.#periodsTasks.set(period.id, task);
     }
+
+
     #deletePeriod(periodIndex) {
         const rowsMap = this.gridManager.rows;
 
@@ -414,23 +401,6 @@ export class ProjectPage extends Page {
             console.error("Не могу получить информацию о менеджере", e);
         }
 
-    }
-
-    async loadAnalytics(deleted) {
-        let haveNewData = false;
-        const periods = this.#periodsSelector.getPeriods();
-
-        for (let i = 0; i < periods.length; i++) {
-            const period = periods[i];
-
-            const analytic = await crmSession.getAnalytic(period.start, period.end, deleted);
-            if (analytic.size) {
-                await this.#applyPeriodToGrid(analytic, i);
-                haveNewData = true;
-            }
-        }
-
-        return haveNewData;
     }
 
     async loadProjectInfo(deleted) {

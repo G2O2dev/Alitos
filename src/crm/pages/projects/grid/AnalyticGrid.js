@@ -11,6 +11,7 @@ import {dateFormatter, weekdaysFormatter} from "./helpers/formatters.js";
 import {ExpandAllHeader} from "./render/ExpandAllHeader.js";
 import {SmartnameToggleHeader} from "./render/SmartnameToggleHeader.js";
 import {AggTotalCellRenderer} from "./render/AggTotal.js";
+import crmSession from "../../../client/crm-session.js";
 
 export class AnalyticGrid {
     _deletedShown = false;
@@ -584,6 +585,20 @@ export class AnalyticGrid {
         ]
     }
 
+    #getPeriodColumnTooltip(field, periodName) {
+        switch (field) {
+            case 'processed':
+                return `Всего номеров за ${periodName}.`;
+            case 'leads':
+                return `Лиды за ${periodName}.\nКолонка является суммой статусов:\n- Переговоры\n- Ожидаем оплаты\n- Партнёрка\n- Оплачено\n- Тест драйв\n- Горячий`;
+            case 'missed':
+                return `Недозвоны за ${periodName}.\nКолонка является суммой статусов:\n- Недозвон\n- Конечный недозвон`;
+            case 'declined':
+                return `Отказы за ${periodName}.\nКолонка является суммой статусов:\n- Закрыто и не реализовано\n- На замену`;
+            default:
+                return field;
+        }
+    }
     #buildPeriodColumns(period, renderColumns) {
         const periodValueGetter = (params) => {
             const periodId = params.colDef.context.periodId;
@@ -658,21 +673,6 @@ export class AnalyticGrid {
             }
         };
 
-        const getColumnTooltip = (field, periodName) => {
-            switch (field) {
-                case 'processed':
-                    return `Всего номеров за ${periodName}.`;
-                case 'leads':
-                    return `Лиды за ${periodName}.\nКолонка является суммой статусов:\n- Переговоры\n- Ожидаем оплаты\n- Партнёрка\n- Оплачено\n- Тест драйв\n- Горячий`;
-                case 'missed':
-                    return `Недозвоны за ${periodName}.\nКолонка является суммой статусов:\n- Недозвон\n- Конечный недозвон`;
-                case 'declined':
-                    return `Отказы за ${periodName}.\nКолонка является суммой статусов:\n- Закрыто и не реализовано\n- На замену`;
-                default:
-                    return field;
-            }
-        };
-
         const createPeriodColumn = (header, field, headerTooltip, cellRenderer, cellClass) => {
             return {
                 headerName: header,
@@ -731,7 +731,7 @@ export class AnalyticGrid {
             return createPeriodColumn(
                 getColumnName(columnField),
                 columnField,
-                getColumnTooltip(columnField, period.name),
+                this.#getPeriodColumnTooltip(columnField, period.name),
                 params => cellRender(params, columnField !== 'processed'),
                 `${columnField}-cell`
             );
@@ -835,40 +835,10 @@ export class AnalyticGrid {
         return data.static.state === 0 ? 'project-limited-completely' : data.static.state > 0 ? 'project-limited' : '';
     }
 
-    #hideColumns(columnsToHide = []) {
-        const newColumnDefs = this.gridOptions.columnDefs.filter(colDef => !columnsToHide.includes(colDef.field));
-        this.gridOptions.columnDefs = newColumnDefs;
-        this.gridApi.setGridOption('columnDefs', newColumnDefs);
-    }
-
-    #addColumns(newColumns = []) {
-        const mergedColumns = [
-            ...this.gridOptions.columnDefs,
-            ...newColumns
-        ];
-        this.gridOptions.columnDefs = mergedColumns;
-        this.gridApi.setGridOption('columnDefs', mergedColumns);
-    }
-
     #sendSelectedToClipboard = params => {
         const text = params.data.split("\r\n").join(", ");
         navigator.clipboard.writeText(text);
     };
-
-    #getTooltip(params) {
-        if (params.node.rowPinned) return null;
-        return params.api
-            .getAllGridColumns()
-            .filter(col => !col.visible)
-            .map(col => {
-                const {field, headerName} = col.getColDef();
-                if (!params.data) return null;
-                const value = params.data[field];
-                return value !== null ? `${headerName}: ${value}` : null;
-            })
-            .filter(val => val !== null)
-            .join('\n');
-    }
 
     #createNumberColumn(header, field, filterParams, headerTooltip, cellRenderer = null, cellClass = null, hide = false) {
         const colDef = {
@@ -1008,6 +978,48 @@ export class AnalyticGrid {
     //#endregion Rows/Cell API
 
     //#region Public
+    applyAnalyticToPeriod(staticData, analytic, periodIndex) {
+        const newRows = [];
+        const rowsMap = this.rows;
+
+        for (const [pId, periodData] of analytic) {
+            const existingRow = rowsMap.get(pId);
+            if (existingRow) {
+                existingRow.periods[periodIndex] = periodData;
+            } else {
+                const periodsData = [];
+                periodsData[periodIndex] = periodData;
+                newRows.push({
+                    periods: periodsData,
+                    static: staticData.get(pId),
+                });
+            }
+        }
+
+        const newRowsLen = newRows.length;
+        if (newRowsLen)
+            this.addRows(newRows);
+
+        if (rowsMap.size !== newRowsLen)
+            this.refreshCells();
+
+        this.gridApi.refreshClientSideRowModel('aggregate');
+
+        if (!this.sourcesGrouping)
+            this.gridApi.refreshClientSideRowModel('sort');
+    }
+    updatePeriodTooltip(period) {
+        for (const columnDef of this.gridOptions.columnDefs) {
+            if (columnDef.context?.periodId === period.index) {
+                columnDef.headerTooltip = this.#getPeriodColumnTooltip(columnDef.field, period.name);
+            }
+        }
+
+        this.gridApi.setGridOption('columnDefs', this.gridOptions.columnDefs);
+        this.gridApi.refreshHeader();
+    }
+
+
     toggleSourcesGrouping() {
         this.sourcesGrouping = !this.sourcesGrouping;
 
