@@ -65,6 +65,9 @@ export class DatesSelector extends EventBase {
         this.#addBtn = document.createElement('button');
         this.#addBtn.type = 'button';
         this.#addBtn.classList.add('dates-selector__add-btn');
+        this.#addBtn.classList.add('cooltip');
+        this.#addBtn.setAttribute('data-tooltip', 'Добавить период');
+        this.#addBtn.setAttribute('data-tooltip-delay', 400);
         this.#addBtn.textContent = this.#config.addButtonLabel;
         this.#addBtn.addEventListener('click', this.#boundAddPeriod);
         this.#element.appendChild(this.#addBtn);
