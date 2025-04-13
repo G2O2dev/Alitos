@@ -148,7 +148,7 @@ function processNameAndTag(name, tag) {
     const domains = extractDomainsFromNameAndTag(cleanName, tag);
 
     return {
-        name: replaceDomainsWithLinks(cleanName, true),
+        name: replaceDomainsWithLinks(cleanName.trim(), true),
         tag: replaceDomainsWithLinks(tag, true),
         domains
     };

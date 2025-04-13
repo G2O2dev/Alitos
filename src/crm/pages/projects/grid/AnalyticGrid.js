@@ -53,9 +53,11 @@ export class AnalyticGrid {
         if (data) {
             return createCellHtml(data.static.smartName.name, data.static.smartName.tag, data.static.operator);
         }
-
-        if (node.allLeafChildren.every(val => val.data?.static.smartName.name === node.allLeafChildren[0].data?.static.smartName.name
-            && val.data?.static.smartName.tag === node.allLeafChildren[0].data?.static.smartName.tag)) {
+        const firstLeafSn = node.childrenAfterFilter[0].data.static.smartName;
+        if (node.childrenAfterFilter.every(val => {
+            const sn = val.data.static.smartName;
+            return sn.name === firstLeafSn.name && sn.tag === firstLeafSn.tag;
+        })) {
             return this.renderSmartnameForCell({node: node.allLeafChildren[0]});
         }
         const result = getDomains(node.allLeafChildren);
@@ -231,9 +233,9 @@ export class AnalyticGrid {
 
             processCellForClipboard: (params) => {
                 if (params.column.colId === 'static.smartName') {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(this.renderSmartnameForCell(params), 'text/html');
-                    return doc.body.textContent;
+                    // const parser = new DOMParser();
+                    // const doc = parser.parseFromString(params.data.static.name, 'text/html');
+                    return params.data.static.name;
                 }
                 return params.value;
             },
