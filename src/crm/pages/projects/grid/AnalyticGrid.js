@@ -242,7 +242,7 @@ export class AnalyticGrid {
             },
 
             onGridReady: (params) => {
-                document.addEventListener('auxclick', function(event) {
+                this.gridElement.addEventListener('auxclick', function(event) {
                     if (event.button !== 1) return;
 
                     const headerCell = event.target.closest('.ag-header-cell');
