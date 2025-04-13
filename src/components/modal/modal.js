@@ -1,216 +1,309 @@
 export class ModalWindow {
-    #isOpen = false;
-    #nonModalElements = [];
-    #originalBodyOverflow = '';
+    _isOpen = false;
+    _nonModalElements = [];
+    _originalBodyOverflow = '';
+    _originalActiveElement = null;
 
-    modalContainer;
-    #modalBackground;
-    #modalContent;
+    modalContainer = null;
+    modalBackground = null;
+    modalContent = null;
 
     onClosed = null;
+    onEscape = null;
 
     options = {
         backgroundOpenClass: 'modal-bg-open',
         backgroundCloseClass: 'modal-bg-close',
-
         contentOpenClass: 'modal-content-open',
         contentCloseClass: 'modal-content-close',
-
         modalActiveClass: 'modal-active',
-        contentClasses: '',
-        containerClasses: '',
+        contentClasses: [],
+        containerClasses: [],
+        renderOnShow: false, // окно уничтожается после закрытия и рендерится заново при открытии
+        closeOnBackgroundClick: true,
+        transitionDuration: 300 // Примерная длительность анимации для transitionend
     };
 
     _lastRenderedHTML = null;
     _lastRenderedElement = null;
 
     constructor(options = {}) {
-        this.options = { ...this.options, ...options };
-        this.#createModalElements();
+        const mergedOptions = { ...this.options, ...options };
+        mergedOptions.contentClasses = this._normalizeClasses(mergedOptions.contentClasses);
+        mergedOptions.containerClasses = this._normalizeClasses(mergedOptions.containerClasses);
+        this.options = mergedOptions;
 
-        if (this.options.contentClasses) {
-            if (typeof this.options.contentClasses === 'string') {
-                this.#modalContent.classList.add(this.options.contentClasses);
-            } else if (Array.isArray(this.options.contentClasses)) {
-                this.options.contentClasses.forEach(cls => {
-                    if (cls) this.#modalContent.classList.add(cls);
-                });
-            }
+        if (!this.options.renderOnShow) {
+            this._createModalElements();
         }
 
-        this.#setupFocusTrap();
         this._handleKeyDown = this._handleKeyDown.bind(this);
-        this._applyCustomStyles();
+        this._handleFocusIn = this._handleFocusIn.bind(this);
+        this._handleBackgroundClick = this._handleBackgroundClick.bind(this);
     }
 
-    #createModalElements() {
+    _normalizeClasses(classes) {
+        if (typeof classes === 'string') {
+            return classes.split(' ').filter(cls => cls);
+        }
+        if (Array.isArray(classes)) {
+            return classes.filter(cls => cls);
+        }
+        return [];
+    }
+
+
+    _applyClasses() {
+        if (!this.modalContainer) return;
+        this.modalContainer.classList.add(...this.options.containerClasses);
+        this.modalContent.classList.add(...this.options.contentClasses);
+    }
+
+    _createModalElements() {
         this.modalContainer = document.createElement('div');
         this.modalContainer.classList.add('modal-container');
-        this.modalContainer.style.display = 'none';
+        this.modalContainer.style.visibility = 'hidden';
+        this.modalContainer.setAttribute('role', 'dialog');
+        this.modalContainer.setAttribute('aria-modal', 'true');
         this.modalContainer.setAttribute('tabindex', '-1');
 
-        this.#modalBackground = document.createElement('div');
-        this.#modalBackground.classList.add('modal-background');
+        this.modalBackground = document.createElement('div');
+        this.modalBackground.classList.add('modal-background');
 
-        this.#modalBackground.addEventListener('click', (e) => {
-            if (e.target === this.#modalBackground) {
-                this.close();
-            }
-        });
+        this.modalContent = document.createElement('div');
+        this.modalContent.classList.add('modal-content');
+        this.modalContent.setAttribute('tabindex', '0');
 
-        this.#modalContent = document.createElement('div');
-        this.#modalContent.classList.add('modal-content');
-        this.#modalContent.setAttribute('tabindex', '0');
+        this._applyClasses();
 
-        this.modalContainer.append(this.#modalBackground, this.#modalContent);
+        this.modalContainer.append(this.modalBackground, this.modalContent);
         document.body.appendChild(this.modalContainer);
+
+        if (this.options.closeOnBackgroundClick) {
+            this.modalBackground.addEventListener('click', this._handleBackgroundClick);
+        }
     }
 
-    #setupFocusTrap() {
-        this._focusinHandler = (e) => {
-            if (!this.modalContainer.contains(e.target)) {
-                const focusable = this.#modalContent.querySelectorAll(
-                    'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
-                );
-                if (focusable.length > 0) {
-                    focusable[0].focus();
-                } else {
-                    this.#modalContent.focus();
-                }
-            }
-        };
+    _getFocusableElements() {
+        if (!this.modalContent) return [];
+        return Array.from(
+            this.modalContent.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+        );
     }
 
-    #makeDocumentInert() {
-        this.#nonModalElements = [];
+    _handleFocusIn(e) {
+        if (this._isOpen && this.modalContent && !this.modalContent.contains(e.target)) {
+            this._setInitialFocus();
+        }
+    }
+
+    _handleBackgroundClick(e) {
+        if (e.target === this.modalBackground) {
+            this.close();
+        }
+    }
+
+    _makeDocumentInert() {
+        this._nonModalElements = [];
+        this._originalActiveElement = document.activeElement;
+
         Array.from(document.body.children).forEach(el => {
-            if (el !== this.modalContainer) {
-                // el.setAttribute('aria-hidden', 'true');
+            if (el !== this.modalContainer && el.tagName !== 'SCRIPT' && el.tagName !== 'LINK') {
+                el.setAttribute('aria-hidden', 'true');
                 el.style.pointerEvents = 'none';
-                this.#nonModalElements.push(el);
+                this._nonModalElements.push(el);
             }
         });
 
-        this.#originalBodyOverflow = document.body.style.overflow;
+        this._originalBodyOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
     }
 
-    #restoreDocument() {
-        if (this.#nonModalElements) {
-            this.#nonModalElements.forEach(el => {
-                el.removeAttribute('aria-hidden');
-                el.style.pointerEvents = '';
-            });
-            this.#nonModalElements = [];
+    _restoreDocument() {
+        this._nonModalElements.forEach(el => {
+            el.removeAttribute('aria-hidden');
+            el.style.pointerEvents = '';
+        });
+        this._nonModalElements = [];
+        document.body.style.overflow = this._originalBodyOverflow;
+
+        if (this._originalActiveElement && typeof this._originalActiveElement.focus === 'function') {
+            this._originalActiveElement.focus();
         }
-        document.body.style.overflow = this.#originalBodyOverflow || '';
+        this._originalActiveElement = null;
+    }
+
+    _setInitialFocus() {
+        requestAnimationFrame(() => {
+            const focusableElements = this._getFocusableElements();
+            if (focusableElements.length > 0) {
+                focusableElements[0].focus();
+            } else {
+                this.modalContent?.focus();
+            }
+        });
     }
 
     open() {
-        if (this.#isOpen) return;
-        this.#isOpen = true;
+        if (this._isOpen) return;
 
-        this.#makeDocumentInert();
+        if (!this.modalContainer) {
+            this._createModalElements();
+        }
 
-        this.modalContainer.style.display = '';
+        this._isOpen = true;
+        this._makeDocumentInert();
 
-        // Принудительный reflow для запуска анимаций
+        this.modalContainer.style.visibility = 'visible';
+
+        // Принудительный перерасчет стилей для запуска перехода
         void this.modalContainer.offsetWidth;
 
-        // Устанавливаем анимационные классы для фона и содержимого
-        this.#modalBackground.classList.remove(this.options.backgroundCloseClass);
-        this.#modalContent.classList.remove(this.options.contentCloseClass);
-        this.#modalBackground.classList.add(this.options.backgroundOpenClass);
-        this.#modalContent.classList.add(this.options.contentOpenClass);
+        this.modalBackground.classList.remove(this.options.backgroundCloseClass);
+        this.modalContent.classList.remove(this.options.contentCloseClass);
+        this.modalBackground.classList.add(this.options.backgroundOpenClass);
+        this.modalContent.classList.add(this.options.contentOpenClass);
         this.modalContainer.classList.add(this.options.modalActiveClass);
 
-        // Вешаем обработчики фокусировки и клавиатуры
-        document.addEventListener('focusin', this._focusinHandler);
         document.addEventListener('keydown', this._handleKeyDown);
+        document.addEventListener('focusin', this._handleFocusIn);
 
-        // Передаём фокус первому доступному элементу или самому контейнеру
-        setTimeout(() => {
-            const focusable = this.#modalContent.querySelectorAll(
-                'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
-            );
-            if (focusable.length > 0) {
-                focusable[0].focus();
-            } else {
-                this.#modalContent.focus();
-            }
-        }, 0);
+        this._setInitialFocus();
     }
 
-    close() {
-        if (!this.#isOpen) return;
-        this.#isOpen = false;
+    _waitForTransitionEnd() {
+        return new Promise((resolve) => {
+            if (!this.modalContainer) {
+                resolve();
+                return;
+            }
 
-        this.#restoreDocument();
+            const transitionHandler = (event) => {
+                if (
+                    event.target === this.modalContainer ||
+                    event.target === this.modalBackground ||
+                    event.target === this.modalContent
+                ) {
+                    this.modalContainer.removeEventListener('transitionend', transitionHandler);
+                    this.modalContainer.removeEventListener('animationend', transitionHandler);
+                    resolve();
+                }
+            };
 
-        document.removeEventListener('focusin', this._focusinHandler);
+            this.modalContainer.addEventListener('transitionend', transitionHandler);
+            this.modalContainer.addEventListener('animationend', transitionHandler);
+
+            // Резерв на случай, если событие не сработало
+            setTimeout(resolve, this.options.transitionDuration + 50);
+        });
+    }
+
+    async close() {
+        if (!this._isOpen || !this.modalContainer) return;
+        this._isOpen = false;
+
         document.removeEventListener('keydown', this._handleKeyDown);
+        document.removeEventListener('focusin', this._handleFocusIn);
 
-        this.#modalBackground.classList.remove(this.options.backgroundOpenClass);
-        this.#modalContent.classList.remove(this.options.contentOpenClass);
-        this.#modalBackground.classList.add(this.options.backgroundCloseClass);
-        this.#modalContent.classList.add(this.options.contentCloseClass);
+        this.modalBackground.classList.remove(this.options.backgroundOpenClass);
+        this.modalContent.classList.remove(this.options.contentOpenClass);
+        this.modalBackground.classList.add(this.options.backgroundCloseClass);
+        this.modalContent.classList.add(this.options.contentCloseClass);
         this.modalContainer.classList.remove(this.options.modalActiveClass);
 
-        const onAnimationEnd = () => {
-            this.modalContainer.style.display = 'none';
-            this.#modalBackground.classList.remove(this.options.backgroundCloseClass);
-            this.#modalContent.classList.remove(this.options.contentCloseClass);
+        await this._waitForTransitionEnd();
 
-            this.#modalBackground.removeEventListener('animationend', onAnimationEnd);
+        if (!this._isOpen && this.modalContainer) {
+            this.modalContainer.style.visibility = 'hidden';
+            this.modalBackground.classList.remove(this.options.backgroundCloseClass);
+            this.modalContent.classList.remove(this.options.contentCloseClass);
+
+            this._restoreDocument();
 
             if (typeof this.onClosed === 'function') {
                 this.onClosed();
             }
-        };
 
-        this.#modalBackground.addEventListener('animationend', onAnimationEnd);
-
-        setTimeout(() => {
-            if (!this.#isOpen && this.modalContainer.style.display !== 'none') {
-                onAnimationEnd();
+            if (this.options.renderOnShow) {
+                this._destroy();
             }
-        }, 500);
+        }
+    }
+
+    _destroy() {
+        document.removeEventListener('keydown', this._handleKeyDown);
+        document.removeEventListener('focusin', this._handleFocusIn);
+
+        if (this.modalBackground) {
+            this.modalBackground.removeEventListener('click', this._handleBackgroundClick);
+        }
+
+        if (this.modalContainer && this.modalContainer.parentElement) {
+            this.modalContainer.parentElement.removeChild(this.modalContainer);
+        }
+
+        this.modalContainer = null;
+        this.modalBackground = null;
+        this.modalContent = null;
+        this._nonModalElements = [];
+        this._originalActiveElement = null;
+        this._isOpen = false;
     }
 
     setContent(content) {
+        if (!this.modalContent) {
+            return;
+        }
+
+        this._lastRenderedElement = null;
+        this._lastRenderedHTML = null;
+
         if (typeof content === 'string') {
-            this.#modalContent.innerHTML = content;
+            this.modalContent.innerHTML = content;
+            this._lastRenderedHTML = content;
         } else if (content instanceof HTMLElement) {
-            this.#modalContent.innerHTML = '';
-            this.#modalContent.appendChild(content);
+            this.modalContent.innerHTML = '';
+            this.modalContent.appendChild(content);
+            this._lastRenderedElement = content;
+        } else {
+            console.error('Unsupported content type for setContent:', content);
         }
     }
 
     appendContent(content) {
+        if (!this.modalContent) {
+            console.warn("Modal content area does not exist for appending.");
+            return;
+        }
+
         if (typeof content === 'string') {
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = content;
-            this.#modalContent.appendChild(wrapper);
+            this.modalContent.insertAdjacentHTML('beforeend', content);
         } else if (content instanceof HTMLElement) {
-            this.#modalContent.appendChild(content);
+            this.modalContent.appendChild(content);
+        } else {
+            console.error('Unsupported content type for appendContent:', content);
         }
     }
 
     render(content) {
+        if (!this.modalContent) {
+            if (!this.options.renderOnShow) {
+                console.warn("Modal content area does not exist for rendering.");
+            }
+            return false;
+        }
+
         if (typeof content === 'string') {
             if (this._lastRenderedHTML === content) return false;
-            this._lastRenderedHTML = content;
-            this._lastRenderedElement = null;
             this.setContent(content);
         } else if (content instanceof HTMLElement) {
             if (this._lastRenderedElement === content) return false;
-            this._lastRenderedElement = content;
-            this._lastRenderedHTML = null;
             this.setContent(content);
         } else {
             throw new Error('Unsupported content type in render()');
         }
-
         return true;
     }
 
@@ -222,11 +315,38 @@ export class ModalWindow {
                 this.close();
             }
         }
+
+        if (e.key === 'Tab' && this._isOpen && this.modalContent) {
+            const focusableElements = this._getFocusableElements();
+            if (focusableElements.length === 0) {
+                e.preventDefault();
+                return;
+            }
+
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === firstElement) {
+                    lastElement.focus();
+                    e.preventDefault();
+                }
+            } else {
+                if (document.activeElement === lastElement) {
+                    firstElement.focus();
+                    e.preventDefault();
+                }
+            }
+        }
     }
 
-    _applyCustomStyles() { }
-
     get contentElement() {
-        return this.#modalContent;
+        return this.modalContent;
+    }
+    get containerElement() {
+        return this.modalContainer;
+    }
+    get isOpen() {
+        return this._isOpen;
     }
 }
