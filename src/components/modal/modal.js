@@ -250,6 +250,8 @@ export class ModalWindow {
         this._nonModalElements = [];
         this._originalActiveElement = null;
         this._isOpen = false;
+        this._lastRenderedElement = null;
+        this._lastRenderedHTML = null;
     }
 
     setContent(content) {

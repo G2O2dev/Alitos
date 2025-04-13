@@ -19,7 +19,7 @@ export class AlitosModal extends ModalWindow {
                 </div>
                 <div class="alitos-modal__header-close"></div>
             </div>
-        `
+        `;
     }
 
     setLoading(isLoading) {

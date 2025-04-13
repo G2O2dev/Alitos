@@ -45,7 +45,7 @@ export class PeriodBtn extends EventBase{
     setAllowedRange(minDate, maxDate) {
         this.#config.datePickerConfig.allowedRange = { minDate, maxDate };
 
-        if (this.periodPickModal) {
+        if (this.periodPickModal?.periodPicker) {
             this.periodPickModal.periodPicker.datePicker.setAllowedRange(minDate, maxDate);
         }
     }

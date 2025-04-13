@@ -175,10 +175,10 @@ export class ProjectPage extends Page {
                 method: () => this.#loadLimitRate(false),
                 info: {loaderText: 'Анализирую лимиты'}
             },
-            // {
-            //     method: () => adviceSystem.waitForLoadComplete(),
-            //     info: {loaderText: 'Думаю над рекомендациями'}
-            // },
+            {
+                method: () => adviceSystem.waitForLoadComplete(),
+                info: {loaderText: 'Думаю над рекомендациями'}
+            },
         ]);
     }
 

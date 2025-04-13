@@ -26,9 +26,9 @@ self.addEventListener('message', async (event) => {
             await getAdvices();
             self.postMessage({ type: 'loadComplete' });
             break;
-        case 'analyticResponse':
+        case 'periodResponse':
             const { sliceName, analytics } = data;
-            analyticsCache.set(sliceName, analytics);
+            periodsCache.set(sliceName, analytics);
             break;
     }
 });
@@ -82,18 +82,18 @@ function getDateOffset(baseDate, offsetDays) {
 //#endregion
 
 //#region Communicator
-const analyticsCache = new Map();
-async function getAnalytic(from, to, deleted) {
+const periodsCache = new Map();
+async function getPeriod(from, to, deleted) {
     const cacheKey = getAnalyticSliceName(from, to, deleted);
-    if (analyticsCache.has(cacheKey)) {
-        return analyticsCache.get(cacheKey);
+    if (periodsCache.has(cacheKey)) {
+        return periodsCache.get(cacheKey);
     }
-    self.postMessage({ type: 'requestAnalytics', data: { sliceName: cacheKey } });
+    self.postMessage({ type: 'requestPeriod', data: { sliceName: cacheKey } });
 
-    const analyticPromise = waitForMessage('analyticsResponse', e => e.data.data.sliceName === cacheKey)
+    const analyticPromise = waitForMessage('periodResponse', e => e.data.data.sliceName === cacheKey)
         .then(response => response.data.analytics);
 
-    analyticsCache.set(cacheKey, analyticPromise);
+    periodsCache.set(cacheKey, analyticPromise);
     return await analyticPromise;
 }
 
@@ -117,12 +117,29 @@ async function getClientInfo() {
     return await clientInfo;
 }
 
+let staticInfo = undefined;
+let deletedStaticInfo = undefined;
+async function getStaticData(deleted = false) {
+    if (!deleted && staticInfo) return staticInfo;
+    if (deleted && deletedStaticInfo) return deletedStaticInfo;
+
+    self.postMessage({ type: 'requestStaticData', data: {deleted} });
+    const resp = waitForMessage('staticDataResponse', e => e.data.data.deleted === deleted).then(response => response.data.staticData);
+    if (deleted) {
+        deletedStaticInfo = resp;
+    } else {
+        staticInfo = resp;
+    }
+
+    return await resp;
+}
+
 function *forEachDayAnalytic(startDate, endDate, deleted) {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     while (start <= end) {
-        yield getAnalytic(start, start, deleted);
+        yield getPeriod(start, start, deleted);
         start.setDate(start.getDate() + 1);
     }
 }
@@ -170,7 +187,6 @@ function calculateCR(total, leads) {
 
     return (leads / total) * 100;
 }
-
 function calculateExponentiallySmoothed(CRs, alpha) {
     let smoothedCR = CRs[0];
 
@@ -180,7 +196,6 @@ function calculateExponentiallySmoothed(CRs, alpha) {
 
     return Math.round(smoothedCR * 100) / 100;
 }
-
 async function getInterestConversion() {
     const client = await getClientInfo();
     const now = new Date();
@@ -189,7 +204,7 @@ async function getInterestConversion() {
     const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
     if (now.getTime() - createdAt.getTime() < TWO_WEEKS_MS) {
-        const analytic = await getAnalytic(createdAt, now);
+        const analytic = await getPeriod(createdAt, now);
         let totalProcessed = 0;
         let totalLeads = 0;
         for (const project of analytic) {
@@ -230,7 +245,7 @@ async function getInterestConversion() {
     for (let i = 0; i < iterationCount; i++) {
         let startTime = new Date(lastEndTime.getTime() - stepMs);
 
-        const analytic = await getAnalytic(startTime, lastEndTime);
+        const analytic = await getPeriod(startTime, lastEndTime);
 
         let stepProcessed = 0;
         let stepLeads = 0;
@@ -256,21 +271,35 @@ async function getWantedNumbersAdvice() {
         actions: [adviceActions.copy],
     };
     const config = await getProjectsConfig();
+    const staticData = await getStaticData(false);
 
     const now = new Date();
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(now.getDate() - 6);
 
-    const daysPhones = await Promise.all(
-        [...forEachDayAnalytic(sevenDaysAgo, now, false)].map(async analyticPromise => {
-            const analytic = await analyticPromise;
-            return analytic.reduce((sum, project) => {
-                return project.state === "Активен"
-                    ? sum + project.callCounts.processed
-                    : sum;
-            }, 0);
-        })
-    );
+    const daysPhones = [];
+    for await (const period of forEachDayAnalytic(sevenDaysAgo, now, false)) {
+        const index = daysPhones.length;
+        daysPhones[index] = 0;
+
+        for (const [id, analytic] of period) {
+            const staticInfo = staticData.get(id);
+
+            if (staticInfo.status === 1) {
+                daysPhones[index] += analytic.processed;
+            }
+        }
+    }
+    // const daysPhones = await Promise.all(
+    //     [...forEachDayAnalytic(sevenDaysAgo, now, false)].map(async analyticPromise => {
+    //         const analytic = await analyticPromise;
+    //         return analytic.reduce((sum, project) => {
+    //             return project.state === "Активен"
+    //                 ? sum + project.callCounts.processed
+    //                 : sum;
+    //         }, 0);
+    //     })
+    // );
 
     const workDaysCount = daysPhones.filter(day => day === 0).length || 1;
 
@@ -317,19 +346,15 @@ async function getMissedAdvice() {
     const twoDaysAgo = getDateOffset(now, -2);
     const sevenDaysAgo = getDateOffset(now, -6);
 
-    const analytics = await Promise.all([
-        ...forEachDayAnalytic(sevenDaysAgo, twoDaysAgo, false)
-    ]);
-
     let missedTotal = 0;
     let total = 0;
 
-    analytics.forEach(analytic => {
-        analytic.forEach(project => {
-            missedTotal += project.callCounts.missed.value;
-            total += project.callCounts.processed;
+    for await (const period of forEachDayAnalytic(sevenDaysAgo, twoDaysAgo, false)) {
+        period.forEach(project => {
+            missedTotal += project.missed.value;
+            total += project.processed;
         });
-    });
+    }
 
     if (total < 15) return;
 
@@ -352,11 +377,22 @@ async function getMissedAdvice() {
     }
 }
 async function getUngroupAdvice() {
-    const today = new Date();
-    const projects = await getAnalytic(today, today, false);
-    const groupedProjectIds = projects
-        .filter(project => project.state === "Активен" && project.sources.length > 1 && (project.project_type === "Звонки" || project.project_type === "Сайты"))
-        .map(project => project.id);
+    const projects = await getStaticData(false);
+    const groupedProjectIds = [];
+
+    for (let [id, p] in projects) {
+        if (p.status !== 1) return false;
+
+        const sourcesCount = p.sources.length ?? (
+            p.sources.hosts_content.length +
+            p.sources.calls_content.length +
+            p.sources.sms_content.length
+        );
+
+        if (sourcesCount > 1 && (p.project_type === "Звонки" || p.project_type === "Сайты")) {
+            groupedProjectIds.push(id);
+        }
+    }
 
     if (!groupedProjectIds.length) return;
 
@@ -380,11 +416,11 @@ async function getStatusAdvice() {
         let totalLocal = 0;
 
         analytic.forEach(project => {
-            statusedLocal += project.callCounts.missed.value;
-            statusedLocal += project.callCounts.declined.value;
-            statusedLocal += project.callCounts.leads.value;
+            statusedLocal += project.missed.value;
+            statusedLocal += project.declined.value;
+            statusedLocal += project.leads.value;
 
-            totalLocal += project.callCounts.processed;
+            totalLocal += project.processed;
         });
 
         total += totalLocal;

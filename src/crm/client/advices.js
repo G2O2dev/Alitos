@@ -23,14 +23,17 @@ class AdviceSystem {
             case 'loadComplete':
                 this.#handleLoadComplete();
                 break;
-            case 'requestAnalytics':
-                this.#handleAnalyticsRequest(data.sliceName);
+            case 'requestPeriod':
+                this.#handlePeriodRequest(data.sliceName);
                 break;
             case 'requestProjectsConfig':
                 this.#handleProjectsConfigRequest();
                 break;
             case 'requestClientInfo':
                 this.#handleClientInfoRequest();
+                break;
+            case 'requestStaticData':
+                this.#handleStaticDataRequest(data.deleted);
                 break;
             default:
                 console.warn('Неизвестный тип сообщения от воркера:', type);
@@ -59,11 +62,19 @@ class AdviceSystem {
         }
     }
 
-    async #handleAnalyticsRequest(sliceName) {
+    async #handlePeriodRequest(sliceName) {
         const analytics = await crmSession.getAnalyticBySliceName(sliceName);
         this.#worker.postMessage({
-            type: 'analyticsResponse',
+            type: 'periodResponse',
             data: { sliceName, analytics }
+        });
+    }
+
+    async #handleStaticDataRequest(deleted) {
+        await crmSession.loadFullStaticData(deleted);
+        this.#worker.postMessage({
+            type: 'staticDataResponse',
+            data: { staticData: await crmSession.getStaticData(), deleted }
         });
     }
 

@@ -4,7 +4,6 @@ export class AlitosPeriodPicker {
     constructor(target, config) {
         this.config = config;
         this.relativeElement = target;
-        this.selectedRange = {start: null, end: null};
 
         this.build();
     }

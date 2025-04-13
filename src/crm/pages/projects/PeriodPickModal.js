@@ -116,6 +116,7 @@ export class PeriodPickModal extends ModalWindow {
     }
 
     onRangeSelected(from, to) {
+        this.config.datePickerConfig.defaultRange = { start: from, end: to };
         this.config.onRangeSelected(from, to);
         this.close();
     }

@@ -2,12 +2,11 @@ import {AlitosModal} from "../../../components/modal/AlitosModal.js";
 import adviceSystem from "../../client/advices.js";
 
 export class AdviceModal extends AlitosModal {
-    #firstRender = true;
-
     constructor() {
         super({
             header: 'Рекомендации',
             contentClasses: ['advice-modal'],
+            renderOnShow: true,
         });
     }
 
@@ -24,7 +23,6 @@ export class AdviceModal extends AlitosModal {
                 priorityLocale = 'Высокий';
                 break;
         }
-
 
         return `
             <p class="advice-card__priority">Приоритет: <span class="${advice.priority}">${priorityLocale}</span></p>
@@ -83,25 +81,18 @@ export class AdviceModal extends AlitosModal {
     }
 
     async loadAdvices() {
-        // this.setLoading(true);
-
         for await (const advice of adviceSystem.loadAdvices()) {
             this.onNewAdvice(advice);
         }
-
-        // this.setLoading(false);
     }
 
     async render() {
         let content = ``;
-
-        if (this.#firstRender) {
-            this.#firstRender = false;
-        }
+        const isRendered = super.render(content);
 
         this.loadAdvices();
 
-        if (super.render(content)) {
+        if (isRendered) {
             for (const card of this.innerCcontentElement.querySelectorAll('.advice-card')) {
                 this.#setupEventsForCard(card);
             }
