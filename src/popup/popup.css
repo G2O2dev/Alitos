@@ -651,6 +651,12 @@
   opacity: 1;
   transform: translateY(0);
 }
+.loader.hidden {
+  display: none;
+}
+.loader.hidden .spinner {
+  animation: none;
+}
 
 .spinner {
   border: 2px solid transparent;

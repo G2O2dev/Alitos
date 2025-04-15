@@ -651,6 +651,12 @@
   opacity: 1;
   transform: translateY(0);
 }
+.loader.hidden {
+  display: none;
+}
+.loader.hidden .spinner {
+  animation: none;
+}
 
 .spinner {
   border: 2px solid transparent;
@@ -1377,7 +1383,7 @@
 }
 
 .projects-fast-actions {
-  position: absolute;
+  position: fixed;
   z-index: 9;
   display: flex;
   flex-direction: row;
@@ -1394,14 +1400,17 @@
   transform: translateY(20px);
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
-.projects-fast-actions.shown {
+.projects-fast-actions.active {
   opacity: 1;
   transform: translateY(0);
+}
+.projects-fast-actions.hidden {
+  display: none;
 }
 .projects-fast-actions .action-controls {
   display: none;
 }
-.projects-fast-actions .action-controls.shown {
+.projects-fast-actions .action-controls.active {
   display: flex;
   gap: 5px;
 }

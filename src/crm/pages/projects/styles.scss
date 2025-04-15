@@ -485,7 +485,7 @@
 //#region Fast actions
 
 .projects-fast-actions {
-  position: absolute;
+  position: fixed;
   z-index: 9;
 
   display: flex;
@@ -508,15 +508,19 @@
   transform: translateY(20px);
   transition: opacity .3s ease, transform .3s ease;
 
-  &.shown {
+  &.active {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  &.hidden {
+    display: none;
   }
 
   .action-controls {
     display: none;
 
-    &.shown {
+    &.active {
       display: flex;
       gap: 5px;
     }
