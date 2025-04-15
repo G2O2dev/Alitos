@@ -33,8 +33,6 @@ export class ProjectPage extends Page {
         this.#setupEvents();
         this.#initSearch();
         this.#loadData();
-
-
     }
 
     #setupFastActions() {
@@ -94,44 +92,36 @@ export class ProjectPage extends Page {
                 //         placeholder: "Новый тег"
                 //     },
                 // },
-                // {
-                //     label: "Отключить",
-                //     value: "disable",
-                //     callback: async () => {
-                //         this.taskTracker.addTask({
-                //             method: async () => this.#applyToSelected(async (selected) => {
-                //                 const selectedIds = selected.map(i => i.id);
-                //
-                //                 await crmSession.disableProjects(selectedIds);
-                //
-                //                 for (const project of selected) {
-                //                     project.status = 0;
-                //                 }
-                //             }),
-                //             info: {loaderText: 'Отключаю проекты'},
-                //             parallel: true
-                //         });
-                //     }
-                // },
-                // {
-                //     label: "Включить",
-                //     value: "enable",
-                //     callback: async () => {
-                //         this.taskTracker.addTask({
-                //             method: async () => this.#applyToSelected(async (selected) => {
-                //                 const selectedIds = selected.map(i => i.id);
-                //
-                //                 await crmSession.enableProjects(selectedIds);
-                //
-                //                 for (const project of selected) {
-                //                     project.static.status = 1;
-                //                 }
-                //             }),
-                //             info: {loaderText: 'Включаю проекты'},
-                //             parallel: true
-                //         });
-                //     }
-                // }
+                {
+                    label: "Отключить",
+                    value: "disable",
+                    callback: async () => {
+                        this.taskTracker.addTask({
+                            method: async () => this.#applyToSelected(async (selected) => {
+                                const selectedIds = selected.map(i => i.static.id);
+
+                                await crmSession.disableProjects(selectedIds);
+                            }),
+                            info: {loaderText: 'Отключаю проекты'},
+                            parallel: true
+                        });
+                    }
+                },
+                {
+                    label: "Включить",
+                    value: "enable",
+                    callback: async () => {
+                        this.taskTracker.addTask({
+                            method: async () => this.#applyToSelected(async (selected) => {
+                                const selectedIds = selected.map(i => i.static.id);
+
+                                await crmSession.enableProjects(selectedIds);
+                            }),
+                            info: {loaderText: 'Включаю проекты'},
+                            parallel: true
+                        });
+                    }
+                }
             ]
         });
 
@@ -379,24 +369,24 @@ export class ProjectPage extends Page {
         this.gridManager.refreshCells();
 
         try {
-            // const managerInfo = await crmSession.getManagerInfo();
-            // if (managerInfo?.role === "Manager") {
-            //     try {
-            //         for await (const limitPotential of crmSession.forEachDayLimitPotential(startDate, today)) {
-            //             limitPotential.forEach(({id, cnt_without_limit_filter}) => {
-            //                 const project = rows.get(id);
-            //                 if (project && cnt_without_limit_filter && (!project.static.limitPotential || project.static.limitPotential < cnt_without_limit_filter)) {
-            //                     project.static.limitPotential = cnt_without_limit_filter;
-            //                 }
-            //             });
-            //         }
-            //     } catch (e) {
-            //         console.error(e);
-            //     }
-            //
-            //     this.gridManager.gridApi.onFilterChanged();
-            //     this.gridManager.refreshCells();
-            // }
+            const managerInfo = await crmSession.getManagerInfo();
+            if (managerInfo?.role === "Manager") {
+                try {
+                    for await (const limitPotential of crmSession.forEachDayLimitPotential(startDate, today)) {
+                        limitPotential.forEach(({id, cnt_without_limit_filter}) => {
+                            const project = rows.get(id);
+                            if (project && cnt_without_limit_filter && (!project.static.limitPotential || project.static.limitPotential < cnt_without_limit_filter)) {
+                                project.static.limitPotential = cnt_without_limit_filter;
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+
+                this.gridManager.gridApi.onFilterChanged();
+                this.gridManager.refreshCells();
+            }
         } catch (e) {
             console.error("Не могу получить информацию о менеджере", e);
         }

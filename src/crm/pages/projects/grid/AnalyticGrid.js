@@ -233,6 +233,9 @@ export class AnalyticGrid {
 
             processCellForClipboard: (params) => {
                 if (params.column.colId === 'static.smartName') {
+                    if (!params.data) {
+                        return params.node?.data?.static.name ?? params.node.aggData["static.name"];
+                    }
                     // const parser = new DOMParser();
                     // const doc = parser.parseFromString(params.data.static.name, 'text/html');
                     return params.data.static.name;
@@ -829,7 +832,7 @@ export class AnalyticGrid {
             }, 0);
         }
 
-        if (!p.data && !p.node.footer) {
+        if (!p.data && !p.node.footer && p.node.childrenAfterFilter.length) {
             // если сгруппировано по источникам, то источники одни для всех строк внутри, берём первую
             const firstRowStatic = p.node.childrenAfterFilter[0].data.static;
             const sourcesCount = firstRowStatic.sources.length ?? (
@@ -1033,14 +1036,29 @@ export class AnalyticGrid {
     //#endregion Rows/Cell API
 
     //#region Public
+    refresh({ sort = false, filter = false, aggregation = false, cells = false, cellForce = false } = {}) {
+        if (sort) this.gridApi.refreshClientSideRowModel('sort');
+        if (aggregation) this.gridApi.refreshClientSideRowModel('aggregate');
+
+        if (filter) this.gridApi.onFilterChanged();
+
+        if (cells) {
+            this.gridApi.refreshCells({ force: cellForce });
+        }
+    }
+
     applyAnalyticToPeriod(staticData, analytic, periodIndex) {
         const newRows = [];
+        const updatedRows = [];
         const rowsMap = this.rows;
 
         for (const [pId, periodData] of analytic) {
             const existingRow = rowsMap.get(pId);
             if (existingRow) {
-                existingRow.periods[periodIndex] = periodData;
+                if (existingRow.periods[periodIndex] !== periodData) {
+                    existingRow.periods[periodIndex] = periodData;
+                    updatedRows.push(existingRow);
+                }
             } else {
                 const periodsData = [];
                 periodsData[periodIndex] = periodData;
@@ -1051,26 +1069,31 @@ export class AnalyticGrid {
             }
         }
 
-        const newRowsLen = newRows.length;
-        if (newRowsLen)
+        if (newRows.length) {
             this.addRows(newRows);
+        }
 
-        if (rowsMap.size !== newRowsLen)
-            this.refreshCells();
+        if (updatedRows.length) {
+            this.gridApi.applyTransaction({ update: updatedRows });
 
-        this.gridApi.refreshClientSideRowModel('aggregate');
-
-        if (!this.sourcesGrouping)
-            this.gridApi.refreshClientSideRowModel('sort');
+            this.refresh({
+                sort: true,
+                filter: true,
+                aggregation: true,
+                cells: newRows.length > 0 || updatedRows.length > 0,
+                cellForce: false
+            });
+        }
     }
     updatePeriodTooltip(period) {
-        for (const columnDef of this.gridOptions.columnDefs) {
+        const colDefs = this.gridApi.getColumnDefs();
+        for (const columnDef of colDefs) {
             if (columnDef.context?.periodId === period.index) {
                 columnDef.headerTooltip = this.#getPeriodColumnTooltip(columnDef.field, period.name);
             }
         }
 
-        this.gridApi.setGridOption('columnDefs', this.gridOptions.columnDefs);
+        this.gridApi.setGridOption('columnDefs', colDefs);
         this.gridApi.refreshHeader();
     }
 
@@ -1096,7 +1119,10 @@ export class AnalyticGrid {
 
     togglePercentSort() {
         this.isPercentSorting = !this.isPercentSorting;
-        this.gridApi.refreshClientSideRowModel('sort');
+        this.refresh({
+            sort: true,
+            filter: true,
+        });
         return this.isPercentSorting;
     }
 
@@ -1154,7 +1180,13 @@ export class AnalyticGrid {
 
     updatePeriods(periods) {
         this.periods = periods;
-        this.gridOptions.columnDefs = this.#buildColDefs();
+        const periodsColumns = this.#buildPeriodsColumns();
+
+        const startIndex = this.gridOptions.columnDefs.findIndex(colDef => colDef.field === this.#usedPeriodColumns[0]);
+
+        this.gridOptions.columnDefs.splice(startIndex, this.#usedPeriodColumns.length);
+        this.gridOptions.columnDefs.splice(startIndex, 0, ...periodsColumns);
+
         this.gridApi.setGridOption('columnDefs', this.gridOptions.columnDefs);
     }
 

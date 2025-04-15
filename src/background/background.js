@@ -76,16 +76,18 @@ async function processRequest(request) {
                 const req_url = activeDomain + request.url;
 
                 request.params ??= {};
-                Object.assign(request.params, {
+
+                const params = {
                     method: 'GET',
                     credentials: 'include',
                     redirect: "manual",
-                });
+                    ...request.params
+                };
 
                 let response;
                 let tryWithNoCors = false;
                 try {
-                    response = await fetch(req_url, request.params);
+                    response = await fetch(req_url, params);
                     tryWithNoCors = !response.ok;
                 } catch (err) {
                     tryWithNoCors = true;
@@ -93,8 +95,8 @@ async function processRequest(request) {
                 }
 
                 if (tryWithNoCors) {
-                    request.params.mode = "no-cors";
-                    response = await fetch(req_url, request.params);
+                    request.params = "no-cors";
+                    response = await fetch(req_url, params);
                 }
 
                 if (!response.ok) console.error("Fetch error", response);

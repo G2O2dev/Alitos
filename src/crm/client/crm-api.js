@@ -53,6 +53,17 @@ class CrmApi {
         return this.#clientInfoDeferred.promise;
     }
 
+    async updateProjects(ids, endpoint, transform) {
+        return Promise.all(
+            ids.map(id =>
+                this.fetch(endpoint, {
+                    method: "POST",
+                    body: JSON.stringify(transform(id))
+                })
+            )
+        );
+    }
+
     async fetch(url, params) {
         return await chrome.runtime.sendMessage({action: "fetch", url, params});
     }
@@ -78,6 +89,7 @@ class CrmApi {
         }));
     }
     async disableProject(id) {
+        console.log(id)
         return this.updateProjects(Array.isArray(id) ? id : [id], "/admin/visit/rt-project-update", id => ({
             id,
             name: "status",

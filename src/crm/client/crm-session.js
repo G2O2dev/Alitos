@@ -162,13 +162,13 @@ class CrmSession {
     async disableProjects(ids) {
         const resp = await crmApi.disableProject(ids);
 
-        await this.#cache.updateByPrefix('analytic_', (project) => {
-            // if (ids.some(id => id === project.id)) {
-            //     project.state = "Неактивен";
-            // }
-
-            return project;
-        });
+        // await this.#cache.updateByPrefix('analytic_', (project) => {
+        //     // if (ids.some(id => id === project.id)) {
+        //     //     project.state = "Неактивен";
+        //     // }
+        //
+        //     return project;
+        // });
     }
     async enableProjects(ids) {
         const resp = await crmApi.enableProject(ids);
