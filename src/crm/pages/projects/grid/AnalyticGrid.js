@@ -390,6 +390,13 @@ export class AnalyticGrid {
                 suppressMovable: true,
             },
             {
+                headerName: 'Источник',
+                field: 'static.sources',
+
+                hide: true,
+                suppressColumnsToolPanel: true,
+            },
+            {
                 headerName: 'Умное имя',
                 field: 'static.smartName',
                 minWidth: 220,
@@ -612,14 +619,6 @@ export class AnalyticGrid {
             },
             this.#createNumberColumn('Дублей всего', 'static.duplicate_cnt', {defaultOption: 'greaterThan'}, null, null, null, true),
             this.#createNumberColumn('Дублей сегодня', 'static.duplicate_cnt_now', {defaultOption: 'greaterThan'}, null, null, null, true),
-
-            {
-                headerName: 'Источник',
-                field: 'static.sources',
-
-                hide: true,
-                suppressColumnsToolPanel: true,
-            },
         ]
     }
 
@@ -1116,7 +1115,6 @@ export class AnalyticGrid {
 
     toggleSourcesGrouping() {
         this.sourcesGrouping = !this.sourcesGrouping;
-
         this.gridApi.setRowGroupColumns(this.sourcesGrouping ? ['static.sources'] : []);
 
         if (!this.sourcesGrouping) {
@@ -1129,7 +1127,6 @@ export class AnalyticGrid {
         }
 
         this.#fitColumns();
-
         return this.sourcesGrouping;
     }
 
@@ -1188,22 +1185,29 @@ export class AnalyticGrid {
         usedCrmColumns.sort((a, b) => statusOrder.indexOf(a) - statusOrder.indexOf(b));
         if (usedCrmColumns[0] !== 'processed') usedCrmColumns.unshift('processed');
 
+        let colDefs = this.gridApi.getColumnDefs();
+        const indexOfProcessed = colDefs.findIndex(colDef => colDef.field === 'processed');
+        colDefs = colDefs.filter(colDef => !this.#usedPeriodColumns.includes(colDef.field));
+
         this.#usedPeriodColumns = usedCrmColumns;
 
-        this.gridOptions.columnDefs = this.#buildColDefs();
-        this.gridApi.setGridOption('columnDefs', this.gridOptions.columnDefs);
+        const periodColDef = this.#buildPeriodsColumns();
+        colDefs.splice(indexOfProcessed, 0, ...periodColDef);
+
+        this.gridApi.setGridOption('columnDefs', colDefs);
     }
 
     updatePeriods(periods) {
         this.periods = periods;
         const periodsColumns = this.#buildPeriodsColumns();
+        const colDefs = this.gridApi.getColumnDefs();
 
-        const startIndex = this.gridOptions.columnDefs.findIndex(colDef => colDef.field === this.#usedPeriodColumns[0]);
+        const startIndex = colDefs.findIndex(colDef => colDef.field === this.#usedPeriodColumns[0]);
 
-        this.gridOptions.columnDefs.splice(startIndex, this.#usedPeriodColumns.length);
-        this.gridOptions.columnDefs.splice(startIndex, 0, ...periodsColumns);
+        colDefs.splice(startIndex, this.#usedPeriodColumns.length);
+        colDefs.splice(startIndex, 0, ...periodsColumns);
 
-        this.gridApi.setGridOption('columnDefs', this.gridOptions.columnDefs);
+        this.gridApi.setGridOption('columnDefs', colDefs);
     }
 
     //#endregion
