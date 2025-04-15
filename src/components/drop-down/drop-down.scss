@@ -13,6 +13,9 @@ $dropdown-arrow-icon-url: "../assets/img/ArrowDown.svg";
   align-items: center;
   justify-content: space-between;
 
+  height: 28px;
+  box-sizing: border-box;
+
   padding: $dropdown-item-padding;
   background-color: var(--color-gray-100);
   border: 1px solid transparent;
