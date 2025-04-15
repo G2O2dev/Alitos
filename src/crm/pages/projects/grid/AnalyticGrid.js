@@ -539,10 +539,26 @@ export class AnalyticGrid {
                 maxWidth: 180,
                 resizable: false,
                 filter: 'agTextColumnFilter',
-                filterParams: {defaultOption: 'contains'},
+                filterParams: { defaultOption: 'contains' },
                 headerTooltip: 'В какие дни работает проект',
                 hide: true,
-                aggFunc: "same",
+                aggFunc: (p) => {
+                    let allEq = true;
+                    const firstValue = p.values[0];
+
+                    for (const value of p.values) {
+                        for (let i = 0; i < value.length; i++) {
+                            const day = value[i];
+                            if (day !== firstValue[i]) {
+                                allEq = false;
+                                break;
+                            }
+                        }
+                        if (!allEq) break;
+                    }
+
+                    return allEq ? firstValue : null;
+                },
                 valueFormatter: p => weekdaysFormatter(p),
             },
             {
