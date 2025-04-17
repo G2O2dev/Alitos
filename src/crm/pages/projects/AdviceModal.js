@@ -72,7 +72,6 @@ export class AdviceModal extends AlitosModal {
 
         this.#setupEventsForCard(cardEl);
 
-
         this.innerCcontentElement.appendChild(fragment);
     }
 
@@ -80,19 +79,15 @@ export class AdviceModal extends AlitosModal {
         super.hide();
     }
 
-    async loadAdvices() {
+    async render() {
+        let content = ``;
+        const firstRender = super.render(content);
+
         for await (const advice of adviceSystem.loadAdvices()) {
             this.onNewAdvice(advice);
         }
-    }
 
-    async render() {
-        let content = ``;
-        const isRendered = super.render(content);
-
-        this.loadAdvices();
-
-        if (isRendered) {
+        if (firstRender) {
             for (const card of this.innerCcontentElement.querySelectorAll('.advice-card')) {
                 this.#setupEventsForCard(card);
             }

@@ -131,7 +131,7 @@ function encryptOperator(operator) {
     }
 }
 
-function processNameAndTag(name, tag) {
+function generateSmartnameData(name, tag) {
     let cleanName = name;
     if (cleanName && cleanName[0] === 'B' && cleanName[2] === '_') {
         cleanName = cleanName.substring(3);
@@ -182,7 +182,7 @@ function parseStaticData(analytic) {
     for (const project of analytic) {
         const deleted = project.deleted_at !== null;
         const encryptedOp = encryptOperator(project.src);
-        const smartNameParts = processNameAndTag(project.name, project.tag);
+        const smartNameParts = generateSmartnameData(project.name, project.tag);
 
         result.set(project.id, {
             id: project.id,

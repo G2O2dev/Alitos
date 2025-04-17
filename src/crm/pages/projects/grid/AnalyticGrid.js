@@ -11,6 +11,7 @@ import {dateFormatter, weekdaysFormatter} from "./helpers/formatters.js";
 import {ExpandAllHeader} from "./render/ExpandAllHeader.js";
 import {SmartnameToggleHeader} from "./render/SmartnameToggleHeader.js";
 import {AggTotalCellRenderer} from "./render/AggTotal.js";
+import {SmartNameRenderer} from "./render/SmartName.js";
 
 export class AnalyticGrid {
     _deletedShown = false;
@@ -24,46 +25,7 @@ export class AnalyticGrid {
     isPercentSorting = false;
     sourcesGrouping = false;
 
-    #smartnameCache = new WeakMap();
-
-    renderSmartnameForCell(params) {
-        if (params.node.footer) return;
-
-        const node = params.node;
-        const data = node.data;
-
-        const cached = this.#smartnameCache.get(node);
-        if (cached) return cached;
-
-        const setToCache = (node, value) => this.#smartnameCache.set(node, value);
-        const createCellHtml = (name, tag, operator = '') => {
-            return `<span class="smartname_cell">
-                <span class="smartname_name">${name}</span>
-                ${tag ? `<span class="smartname_tag"> (${tag})</span>` : ''}
-                ${operator ? `<span class="smartname_operator">${operator}</span>` : ''}
-            </span>`;
-        };
-        const getDomains = (childNodes) => {
-            const allDomains = childNodes.flatMap(child => child.data.static.smartName.domains || []);
-            const uniqueDomains = [...new Set(allDomains)];
-            const displayed = uniqueDomains.slice(0, 5).join(', ');
-            return createCellHtml(replaceDomainsWithLinks(displayed, true));
-        };
-
-        if (data) {
-            return createCellHtml(data.static.smartName.name, data.static.smartName.tag, data.static.operator);
-        }
-        const firstLeafSn = node.childrenAfterFilter[0].data.static.smartName;
-        if (node.childrenAfterFilter.every(val => {
-            const sn = val.data.static.smartName;
-            return sn.name === firstLeafSn.name && sn.tag === firstLeafSn.tag;
-        })) {
-            return this.renderSmartnameForCell({node: node.allLeafChildren[0]});
-        }
-        const result = getDomains(node.allLeafChildren);
-        setToCache(node, result);
-        return result;
-    }
+    #smartNameRenderer = new SmartNameRenderer();
 
     constructor(config) {
         const {selector, periods} = config;
@@ -162,6 +124,7 @@ export class AnalyticGrid {
                     }
                 },
             },
+            groupHideParentOfSingleChild: true,
 
             onSelectionChanged: () => this.#onSelectionChanged(),
 
@@ -190,32 +153,15 @@ export class AnalyticGrid {
             onFirstDataRendered: params => this.#fitColumns(),
             getContextMenuItems: ({defaultItems, column}) => {
                 const newDefaultItems = defaultItems?.filter(i =>
-                    !['cut', 'copyWithHeaders', 'copyWithGroupHeaders', 'paste'].includes(i)
+                    !['cut', 'copyWithHeaders', 'copyWithGroupHeaders', 'paste', 'export', 'separator'].includes(i)
                 );
-                const newItems = [];
+                const newItems = newDefaultItems;
                 newItems.push({
                     name: 'Копировать источники',
                     action: () => this.copySourcesOfSelected(),
                 });
 
-                const selectedCells = this.gridApi.getCellRanges()[0];
-                if (selectedCells) {
-                    const selected = this.getSelectedRows();
-                    newItems.push({
-                        name: `Скрыть ${pluralize(selected.length, 'проект', '', 'а', 'ов')}`,
-                        action: () => {
-                            this.gridApi.clearCellSelection();
-                            this.gridApi.clearFocusedCell();
-                            this.#hideCells(selected);
-                        },
-                    });
-                }
-
-                const items = newItems;
-                if (newDefaultItems)
-                    items.push(...newDefaultItems);
-
-                return items;
+                return newItems;
             },
             getMainMenuItems: ({defaultItems}) => {
                 const filtered = defaultItems?.filter(i => !['pinSubMenu', 'autoSizeThis', 'autoSizeAll', 'resetColumns'].includes(i));
@@ -393,6 +339,10 @@ export class AnalyticGrid {
                 headerName: 'Источник',
                 field: 'static.sources',
 
+                // valueGetter: (params) => {
+                //     return 'чиж';
+                // },
+
                 hide: true,
                 suppressColumnsToolPanel: true,
             },
@@ -401,7 +351,7 @@ export class AnalyticGrid {
                 field: 'static.smartName',
                 minWidth: 220,
                 headerTooltip: 'Умное имя имеет ряд улучшений над названием и тегом:\n- Компилирует название и тег в формате: Название (Тег).\n- В конце ячейки отображается реальный оператор.\n- При клике на домен, он будет открыт\n- Если тег повторяет название он не будет отображён.',
-                cellRenderer: (p) => this.renderSmartnameForCell(p),
+                cellRenderer: (p) => this.#smartNameRenderer.renderSmartnameForCell(p),
 
                 suppressColumnsToolPanel: true,
                 filterParams: {suppressMiniFilter: true},
@@ -550,21 +500,18 @@ export class AnalyticGrid {
                 headerTooltip: 'В какие дни работает проект',
                 hide: true,
                 aggFunc: (p) => {
-                    let allEq = true;
-                    const firstValue = p.values[0];
+                    const days = new Set();
 
-                    for (const value of p.values) {
-                        for (let i = 0; i < value.length; i++) {
-                            const day = value[i];
-                            if (day !== firstValue[i]) {
-                                allEq = false;
-                                break;
-                            }
+                    for (const arr of p.values) {
+                        for (const day of arr) {
+                            days.add(day);
                         }
-                        if (!allEq) break;
                     }
 
-                    return allEq ? firstValue : null;
+                    return Array.from(days)
+                        .map(Number)
+                        .sort((a, b) => a - b)
+                        .map(String);
                 },
                 valueFormatter: p => weekdaysFormatter(p),
             },
@@ -799,7 +746,7 @@ export class AnalyticGrid {
                     const toRemove = this.getSelectedRows().map(row => row.data.static.id);
                     this.gridApi.clearCellSelection();
                     this.gridApi.clearFocusedCell();
-                    this.#hideCells(toRemove);
+                    this.hideRows(toRemove);
                 }
             }
             if (e.ctrlKey && e.shiftKey && e.code === "KeyC") {
@@ -811,14 +758,16 @@ export class AnalyticGrid {
         });
     }
 
-    #hideCells(cells) {
-        this.gridApi.applyTransaction({remove: cells});
-        this.gridApi.refreshCells({force: true});
+    hideRows(rows) {
+        this.gridApi.applyTransaction({remove: rows});
+        this.refresh({
+            aggregation: true,
+        });
     }
 
     #projectTypeRenderer(p) {
         const openWebpages = (domains) => {
-            setTimeout(() => {
+            setTimeout(() => { // Чтобы успели зарендериться элементы
                 const anchor = p.eGridCell.querySelector("a");
                 if (anchor && !anchor.dataset.clickListenerAdded) {
                     anchor.dataset.clickListenerAdded = "true";
@@ -826,7 +775,7 @@ export class AnalyticGrid {
                         e.preventDefault();
                         // Преобразуем все найденные сайты в корректные URL
                         const webpages = domains.map(w => `https://${w}`);
-                        if (domains > 1) {
+                        if (domains.length > 1) {
                             chrome.runtime.sendMessage({
                                 action: "open-window-with-links",
                                 urls: webpages,
@@ -858,7 +807,7 @@ export class AnalyticGrid {
             const sourcesCounter = `<span class="sources_count">${sourcesCount}</span>`;
             let aggregatedHosts = [];
 
-            const hasSites = p.value.includes('Сайты');
+            const hasSites = p.value.includes('Сайты') || firstRowStatic.sources.hosts_content?.length;
             let sourceType = p.value;
 
             if (hasSites) {
@@ -889,7 +838,7 @@ export class AnalyticGrid {
 
         const sourcesCounter = `<span class="sources_count">${sourcesCount}</span>`;
         let sourceType = p.value;
-        const hasSites = (p.data.static.sources.hosts_content && p.data.static.sources.hosts_content.length) || p.value.includes('Сайты');
+        const hasSites = p.data.static.sources.hosts_content?.length > 0 || p.value.includes('Сайты');
 
         if (hasSites) {
             sourceType = `<a href="#">${p.value}</a>`;
@@ -1197,17 +1146,23 @@ export class AnalyticGrid {
         this.gridApi.setGridOption('columnDefs', colDefs);
     }
 
-    updatePeriods(periods) {
+    setPeriods(periods) {
         this.periods = periods;
         const periodsColumns = this.#buildPeriodsColumns();
-        const colDefs = this.gridApi.getColumnDefs();
+        let colDefs = this.gridApi.getColumnDefs();
 
         const startIndex = colDefs.findIndex(colDef => colDef.field === this.#usedPeriodColumns[0]);
 
-        colDefs.splice(startIndex, this.#usedPeriodColumns.length);
+        colDefs = colDefs.filter(col => !this.#usedPeriodColumns.includes(col.field));
         colDefs.splice(startIndex, 0, ...periodsColumns);
 
         this.gridApi.setGridOption('columnDefs', colDefs);
+    }
+
+    deletePeriodData(periodIndex) {
+        for (const [id, rowData] of this.rows) {
+            rowData.periods.splice(periodIndex, 1);
+        }
     }
 
     //#endregion

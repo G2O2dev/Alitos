@@ -87,12 +87,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: inline-block;
-  max-width: calc(100% - 22px);
+  max-width: 100%;
+}
+.smartname_cell--operator {
+  max-width: calc(100% - 20px);
 }
 
 .smartname_operator {
   position: absolute;
-  left: calc(100% - 30px);
+  left: calc(100% - 26px);
   color: var(--color-text-tertiary);
 
   user-select: none;

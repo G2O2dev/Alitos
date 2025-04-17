@@ -121,6 +121,11 @@ export class ProjectPage extends Page {
                             parallel: true
                         });
                     }
+                },
+                {
+                    label: "Скрыть",
+                    value: "hide",
+                    callback: () => this.#applyToSelected(selected => this.gridManager.hideRows(selected))
                 }
             ]
         });
@@ -140,6 +145,8 @@ export class ProjectPage extends Page {
         await fn(selected);
 
         this.gridManager.gridApi.deselectAll();
+        this.gridManager.gridApi.clearCellSelection();
+        this.gridManager.gridApi.clearFocusedCell();
 
         this.gridManager.gridApi.refreshCells({
             rowNodes: selected,
@@ -262,7 +269,7 @@ export class ProjectPage extends Page {
             period.index = this.#periodsSelector.getPeriods().findIndex(p => p.id === period.id);
             period.name = formatPeriod(period.start, period.end).toLowerCase();
 
-            this.gridManager.updatePeriods(this.#periodsSelector.getPeriods());
+            this.gridManager.setPeriods(this.#periodsSelector.getPeriods());
             this.#updatePeriod(period);
         });
         this.#periodsSelector.on("period:changed", ({detail}) => {
@@ -271,11 +278,11 @@ export class ProjectPage extends Page {
             this.gridManager.updatePeriodTooltip(detail.period);
         });
         this.#periodsSelector.on("period:deleted", ({detail}) => {
-            this.#deletePeriod(detail.period.index);
+            this.gridManager.deletePeriodData(detail.period.index);
 
             this.#periodsSelector.getPeriods().forEach((p, i) => p.index = i);
 
-            this.gridManager.updatePeriods(this.#periodsSelector.getPeriods());
+            this.gridManager.setPeriods(this.#periodsSelector.getPeriods());
         });
 
 
@@ -316,14 +323,6 @@ export class ProjectPage extends Page {
         this.#periodsTasks.set(period.id, task);
     }
 
-
-    #deletePeriod(periodIndex) {
-        const rowsMap = this.gridManager.rows;
-
-        for (const [id, rowData] of rowsMap) {
-            rowData.periods.splice(periodIndex, 1);
-        }
-    }
     #applyFullStaticDataToGrid(projectsInfo) {
         for (const staticData of projectsInfo.values()) {
             const rowData = this.gridManager.rows.get(staticData.id);
@@ -471,18 +470,9 @@ export class ProjectPage extends Page {
         this.#setToggleState('toggleDeleted', this.gridManager.deletedShown);
 
         if (this.gridManager.deletedShown && !this.#deletedLoaded) {
-            const analyticHaveNewData = await this.taskTracker.addTask({
-                method: () => this.loadAnalytics(true),
-                info: {loaderText: 'Загружаю аналитику удалённых проектов'},
-                parallel: true,
-            });
-
-            if (analyticHaveNewData) {
-                await this.taskTracker.addTask({
-                    method: () => this.loadProjectInfo(true),
-                    info: {loaderText: 'Загружаю настройки удалённых проектов'},
-                    parallel: true,
-                });
+            await crmSession.loadFullStaticData(true);
+            for (const period of this.#periodsSelector.getPeriods()) {
+                await this.#updatePeriod(period, false);
             }
 
             this.#deletedLoaded = true;

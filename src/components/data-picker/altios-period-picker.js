@@ -34,7 +34,7 @@ export class AlitosPeriodPicker {
             {label: 'Год', getRange: () => this.getYear()}
         ];
 
-        if (this.config.allowedRange) {
+        if (this.config.allowedRange.minDate && this.config.allowedRange.maxDate) {
             periods.push({
                 label: 'Всё время', getRange: () => {
                     return {
