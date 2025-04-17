@@ -237,7 +237,7 @@ export class AnalyticGrid {
                     if (e.button !== 0 || !e.target.closest('[col-id="ag-Grid-SelectionColumn"]') || !e.target.closest('.ag-body-viewport')) return;
                     e.preventDefault();
                     const node = getRowNodeFromEvent(e);
-                    if (node && node.selectable && node.rowIndex != null) {
+                    if (node && node.selectable && node.rowIndex != null && !node.footer) {
                         isDragSelecting = true;
                         startRowNode = node;
                         initialRowIndex = node.rowIndex;
