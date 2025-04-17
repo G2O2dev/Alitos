@@ -805,21 +805,16 @@ export class AnalyticGrid {
                 firstRowStatic.sources.sms_content.length
             );
             const sourcesCounter = `<span class="sources_count">${sourcesCount}</span>`;
-            let aggregatedHosts = [];
-
             const hasSites = p.value.includes('Сайты') || firstRowStatic.sources.hosts_content?.length;
             let sourceType = p.value;
 
             if (hasSites) {
-                p.node.childrenAfterFilter.forEach(child => {
-                    const data = child.data;
-
-                    if (data.static.sources.hosts_content && data.static.sources.hosts_content.length) {
-                        aggregatedHosts = aggregatedHosts.concat(data.static.sources.hosts_content);
-                    } else if (data.static.sources && Array.isArray(data.static.sources)) {
-                        aggregatedHosts = aggregatedHosts.concat(data.static.sources);
-                    }
-                });
+                let aggregatedHosts = [];
+                if (firstRowStatic.sources.hosts_content && firstRowStatic.sources.hosts_content.length) {
+                    aggregatedHosts = aggregatedHosts.concat(firstRowStatic.sources.hosts_content);
+                } else if (firstRowStatic.sources && Array.isArray(firstRowStatic.sources)) {
+                    aggregatedHosts = aggregatedHosts.concat(firstRowStatic.sources);
+                }
 
                 sourceType = `<a href="#">${p.value}</a>`;
                 openWebpages(aggregatedHosts);
