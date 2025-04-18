@@ -995,14 +995,19 @@ export class AnalyticGrid {
     //#endregion Rows/Cell API
 
     //#region Public
-    refresh({ sort = false, filter = false, aggregation = false, cells = false, cellForce = false } = {}) {
+    refresh({ sort = false, filter = false, aggregation = false, cells = false,
+                cellForce = false, rowNodes = undefined, columns = undefined } = {}) {
         if (sort) this.gridApi.refreshClientSideRowModel('sort');
         if (aggregation) this.gridApi.refreshClientSideRowModel('aggregate');
 
         if (filter) this.gridApi.onFilterChanged();
 
         if (cells) {
-            this.gridApi.refreshCells({ force: cellForce });
+            this.gridApi.refreshCells({
+                columns,
+                rowNodes,
+                force: cellForce,
+            });
         }
     }
 
@@ -1040,7 +1045,9 @@ export class AnalyticGrid {
                 filter: true,
                 aggregation: true,
                 cells: newRows.length > 0 || updatedRows.length > 0,
-                cellForce: false
+                cellForce: true,
+                columns: this.#usedPeriodColumns,
+                rowNodes: updatedRows,
             });
         }
     }
