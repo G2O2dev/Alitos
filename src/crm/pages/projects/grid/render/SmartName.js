@@ -1,3 +1,5 @@
+import { replaceDomainsWithLinks } from '../../../../utils/helpers.js';
+
 export class SmartNameRenderer {
     #smartnameCache = new WeakMap();
 
